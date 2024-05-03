@@ -40,15 +40,22 @@ export default function ClaimPage() {
             const decryptedUrl = decryptNWCUrl(nwc.url, secret);
             console.log('Decrypted NWC URL:', decryptedUrl);
             if (decryptedUrl) {
-                const nwcInstance = new webln.NostrWebLNProvider({ nostrWalletConnectUrl: decryptedUrl });
+                try {
 
-                await nwcInstance.enable();
-
-                console.log('nwcInstance', nwcInstance);
-
-                const sendPaymentResponse = await nwcInstance.sendPayment(invoice);
-
-                console.log('sendPaymentResponse', sendPaymentResponse);
+                    const nwcInstance = new webln.NostrWebLNProvider({ nostrWalletConnectUrl: decryptedUrl });
+                    
+                    await nwcInstance.enable();
+                    
+                    console.log('nwcInstance', nwcInstance);
+                    
+                    const sendPaymentResponse = await nwcInstance.sendPayment(invoice);
+                    
+                    console.log('sendPaymentResponse', sendPaymentResponse);
+                } catch {
+                    console.error('Error sending payment');
+                
+                    return;
+                }
             }
         }
     };

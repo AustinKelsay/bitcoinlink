@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { InputNumber } from 'primereact/inputnumber';
 import { Button } from 'primereact/button';
 import { Dialog } from 'primereact/dialog';
@@ -8,12 +8,61 @@ import AlbyButton from '@/components/AlbyButton';
 import MutinyButton from '@/components/MutinyButton';
 import axios from 'axios';
 import crypto from 'crypto';
+import useSubscribeToEvents from "@/hooks/useSubscribeToEvents";
+
+const appPublicKey = "f2cee06b62c2e57192bf3a344618695da2ad3bf590645b6764959840b62f7bfc";
+const appPrivKey = "2ed6c9e8b1840b584af2ee06afcf8527307f7b687301812ec438ccfbd0fbe7f6";
+const relayUrl = encodeURIComponent('wss://nostr.mutinywallet.com/');
 
 export default function Home() {
   const [numberOfLinks, setNumberOfLinks] = useState(null);
   const [satsPerLink, setSatsPerLink] = useState(null);
   const [dialogVisible, setDialogVisible] = useState(false);
   const [generatedLinks, setGeneratedLinks] = useState([]);
+  const [secret, setSecret] = useState('');
+
+  const { subscribeToEvents, fetchedEvents } = useSubscribeToEvents();
+
+  useEffect(() => {
+    fetchedEvents.forEach(async (event) => {
+      if (event.tags[0][1] === appPublicKey) {
+        try {
+          const decrypted = await nip04.decrypt(appPrivKey, event.pubkey, event.content);
+          const decryptedSecret = JSON.parse(decrypted).secret;
+          if (decryptedSecret === secret) {
+            const nwcUri = `nostr+walletconnect://${event.pubkey}?relay=${relayUrl}&pubkey=${appPublicKey}&secret=${appPrivKey}`;
+
+            if (nwcUri) {
+              const { encryptedUrl, secret } = encryptNWCUrl(nwcUri);
+
+              const oneYearFromNow = new Date();
+              oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+
+              axios.post('/api/nwc', {
+                url: encryptedUrl,
+                maxAmount: numberOfLinks * satsPerLink,
+                numLinks: numberOfLinks,
+                expiresAt: oneYearFromNow,
+              })
+                .then(async (response) => {
+                  if (response.status === 201 && response.data?.id) {
+                    console.log('NWC created', response.data);
+                    const generatedLinks = await generateLinks(response.data.id, secret);
+                    setGeneratedLinks(generatedLinks);
+                    setDialogVisible(true);
+                  }
+                })
+                .catch((error) => {
+                  console.error('Error creating NWC', error);
+                });
+            }
+          }
+        } catch (error) {
+          console.error('Error decrypting event', error);
+        }
+      }
+    });
+  }, [fetchedEvents, secret]);
 
   const encryptNWCUrl = (url) => {
     const secret = crypto.randomBytes(32).toString('hex');
@@ -21,6 +70,22 @@ export default function Home() {
     let encryptedUrl = cipher.update(url, 'utf8', 'hex');
     encryptedUrl += cipher.final('hex');
     return { encryptedUrl, secret };
+  };
+
+  const handleMutinySubmit = async () => {
+    const newSecret = crypto.randomBytes(16).toString('hex');
+    setSecret(newSecret);
+    const requiredCommands = 'pay_invoice';
+    const budget = `${numberOfLinks * satsPerLink}/year`;
+    const identity = "8172b9205247ddfe99b783320782d0312fa305a199fb2be8a3e6563e20b4f0e2";
+
+    const nwaUri = `nostr+walletauth://${appPublicKey}?relay=${relayUrl}&secret=${newSecret}&required_commands=${requiredCommands}&budget=${budget}&identity=${identity}`;
+    const encodedNwaUri = encodeURIComponent(nwaUri);
+    const mutinySettingsUrl = `https://app.mutinywallet.com/settings/connections?nwa=${encodedNwaUri}`;
+
+    window.open(mutinySettingsUrl, 'mutinyWindow', 'width=600,height=700');
+
+    subscribeToEvents([{ kinds: [33194], since: Math.round(Date.now() / 1000) }]);
   };
 
   const handleAlbySubmit = async () => {
@@ -68,63 +133,6 @@ export default function Home() {
     } catch (e) {
       console.warn('Prompt closed', e);
     }
-  };
-
-  const handleMutinySubmit = async () => {
-    const appPublicKey = "f2cee06b62c2e57192bf3a344618695da2ad3bf590645b6764959840b62f7bfc";
-    const appPrivKey = "2ed6c9e8b1840b584af2ee06afcf8527307f7b687301812ec438ccfbd0fbe7f6"
-    const relayUrl = encodeURIComponent('wss://nostr.mutinywallet.com/');
-    const secret = crypto.randomBytes(16).toString('hex');
-    const requiredCommands = 'pay_invoice';
-    const budget = `${numberOfLinks * satsPerLink}/year`;
-    const identity = "8172b9205247ddfe99b783320782d0312fa305a199fb2be8a3e6563e20b4f0e2";
-  
-    const nwaUri = `nostr+walletauth://${appPublicKey}?relay=${relayUrl}&secret=${secret}&required_commands=${requiredCommands}&budget=${budget}&identity=${identity}`;
-    const encodedNwaUri = encodeURIComponent(nwaUri);
-    const mutinySettingsUrl = `https://app.mutinywallet.com/settings/connections?nwa=${encodedNwaUri}`;
-  
-    window.open(mutinySettingsUrl, 'mutinyWindow', 'width=600,height=700');
-  
-    const sub = relayInit('wss://nostr.mutinywallet.com/');
-  
-    sub.on('connect', () => {
-      sub.sub([{ kinds: [33194], since: Math.round(Date.now() / 1000) }]);
-    });
-  
-    sub.on('event', async (event) => {
-      console.log('Event received', event);
-      if (event.tags[0][1] === appPublicKey) {
-        console.log('Event for this app', event);
-        try {
-          const decrypted = await nip04.decrypt(appPrivKey, event.pubkey, event.content);
-          const decryptedSecret = JSON.parse(decrypted).secret;
-          if (decryptedSecret === secret) {
-            const nwcUri = `nostr+walletconnect://${event.pubkey}?relay=${relayUrl}&pubkey=${appPublicKey}&secret=${appPrivKey}`;
-  
-            axios.post('/api/nwc', {
-              url: nwcUri,
-              maxAmount: numberOfLinks * satsPerLink,
-              numLinks: numberOfLinks,
-              expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-            })
-              .then(async (response) => {
-                if (response.status === 201 && response.data?.id) {
-                  console.log('NWC created', response.data);
-                  const generatedLinks = await generateLinks(response.data.id, secret);
-                  setGeneratedLinks(generatedLinks);
-                  setDialogVisible(true);
-                  sub.unsub();
-                }
-              })
-              .catch((error) => {
-                console.error('Error creating NWC', error);
-              });
-          }
-        } catch {
-          return;
-        }
-      }
-    });
   };
 
   const generateLinks = async (nwcId, secret) => {
