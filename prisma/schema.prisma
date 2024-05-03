@@ -1,0 +1,26 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model NWC {
+  id            String   @id @default(cuid())
+  name          String
+  url           String
+  expiresAt     DateTime
+  maxAmount     Int
+  rewardLinks   RewardLink[]
+}
+
+model RewardLink {
+  id        String   @id @default(cuid())
+  nwc       NWC      @relation(fields: [nwcId], references: [id])
+  nwcId     String
+  amount    Int
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
