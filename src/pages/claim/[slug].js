@@ -1,75 +1,80 @@
-import React, {useState, useEffect} from "react";
-import axios from "axios";
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
+import axios from 'axios';
+import crypto from 'crypto';
 import { InputText } from 'primereact/inputtext';
 import { Button } from 'primereact/button';
-import { useRouter } from "next/router";
 import { webln } from "@getalby/sdk";
 
-const Claim = () => {
-    const [invoice, setInvoice] = useState('');
-    const [claimed, setClaimed] = useState(false);
-    const [nwcId, setNwcId] = useState(null);
-    const [amount, setAmount] = useState(null);
-
+export default function ClaimPage() {
     const router = useRouter();
-
-    const slug = router.query.slug;
+    const { slug, secret } = router.query;
+    const [nwc, setNwc] = useState(null);
+    const [invoice, setInvoice] = useState('');
 
     useEffect(() => {
+        const fetchNWC = async () => {
+            try {
+                const response = await axios.get(`/api/nwc/${slug}`);
+                setNwc(response.data);
+            } catch (error) {
+                console.error('Error fetching NWC', error);
+            }
+        };
+
         if (slug) {
-            axios.get(`/api/links/${slug}`)
-                .then(async (response) => {
-                    if (response.data && response.data.used === false) {
-                        setNwcId(response.data.nwcId);
-                        setAmount(response.data.amount);
-                    } else {
-                        setClaimed(true);
-                    }
-                })
-                .catch((error) => {
-                    console.error('Error finding link', error);
-                });
+            fetchNWC();
         }
     }, [slug]);
 
-    const payout = async () => {
-      axios.get(`/api/nwc/${nwcId}`)
-      .then(async (response) => {
-          if (response && response.data && response.data.url) {
-            const url = response.data.url;
-            if (url) {
-                const nwcInstance = new webln.NostrWebLNProvider({ nostrWalletConnectUrl: url });
+    const decryptNWCUrl = (encryptedUrl, secret) => {
+        const decipher = crypto.createDecipher('aes-256-cbc', secret);
+        let decryptedUrl = decipher.update(encryptedUrl, 'hex', 'utf8');
+        decryptedUrl += decipher.final('utf8');
+        return decryptedUrl;
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (nwc && secret) {
+            const decryptedUrl = decryptNWCUrl(nwc.url, secret);
+            console.log('Decrypted NWC URL:', decryptedUrl);
+            if (decryptedUrl) {
+                const nwcInstance = new webln.NostrWebLNProvider({ nostrWalletConnectUrl: decryptedUrl });
 
                 await nwcInstance.enable();
 
                 console.log('nwcInstance', nwcInstance);
-                
+
                 const sendPaymentResponse = await nwcInstance.sendPayment(invoice);
-                
+
                 console.log('sendPaymentResponse', sendPaymentResponse);
             }
-          }
-      })
-        .catch((error) => {
-            console.error('Error finding NWC', error);
-        });
-    }
-
-    const handleSubmit = async () => {
-        if (invoice && nwcId && amount && !claimed) {
-            await payout(amount, nwcId);
         }
+    };
+
+    if (!nwc) {
+        return <div>Loading...</div>;
     }
 
     return (
-        <div className={"flex flex-col items-center justify-evenly p-8"}>
-            <h1 className="text-4xl">Put in a bolt11 invoice to claim your reward</h1>
-            <div className="flex flex-col justify-between h-32">
-                <InputText placeholder={"lnbc1..."} value={invoice} onChange={(e) => setInvoice(e.target.value)} />
-                <Button className="w-fit mx-auto" label="Submit" severity="success" outlined onClick={handleSubmit} />
+        <main className="flex flex-col items-center justify-evenly p-8">
+            <h1 className="text-4xl">Claim Link</h1>
+            <div className="flex flex-col items-center">
+                <p>Status: {nwc.claimed ? 'Claimed' : 'Unclaimed'}</p>
+                <p>Amount: {nwc.maxAmount / nwc.numLinks} sats</p>
+                <form onSubmit={handleSubmit} className="flex flex-col items-center">
+                    <div className="flex flex-col items-center my-8">
+                        <label htmlFor="invoice">Enter Invoice</label>
+                        <InputText
+                            id="invoice"
+                            value={invoice}
+                            onChange={(e) => setInvoice(e.target.value)}
+                        />
+                    </div>
+                    <Button label="Claim" severity="success" type="submit" />
+                </form>
             </div>
-        </div>
+        </main>
     );
 }
-
-export default Claim;

@@ -9,18 +9,8 @@ generator client {
 
 model NWC {
   id            String   @id @default(cuid())
-  name          String
   url           String
   expiresAt     DateTime
   maxAmount     Int
-  rewardLinks   RewardLink[]
-}
-
-model RewardLink {
-  id        String   @id @default(cuid())
-  nwc       NWC      @relation(fields: [nwcId], references: [id])
-  nwcId     String
-  amount    Int
-  used      Boolean  @default(false)
-  createdAt DateTime @default(now())
+  numLinks      Int
 }

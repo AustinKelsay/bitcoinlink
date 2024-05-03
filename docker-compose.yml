@@ -1,7 +1,7 @@
 version: "3"
 services:
   db:
-    container_name: nwc-rewards-links-db
+    container_name: bitcoinlink-db
     image: postgres:13.2
     restart: always
     expose:
@@ -13,7 +13,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
   app:
-    container_name: nwc-rewards-links
+    container_name: bitcoinlink
     build: .
     depends_on:
       - db
