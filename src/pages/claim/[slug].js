@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { InputText } from 'primereact/inputtext';
 import { Button } from 'primereact/button';
 import { webln } from "@getalby/sdk";
+import { useToast } from '@/hooks/useToast';
 
 export default function ClaimPage() {
     const router = useRouter();
@@ -14,6 +15,8 @@ export default function ClaimPage() {
     const [claimed, setClaimed] = useState(false);
     const [exists, setExists] = useState(true);
 
+    const { showToast } = useToast();
+
     useEffect(() => {
         const fetchNWC = async () => {
             try {
@@ -21,6 +24,7 @@ export default function ClaimPage() {
                 setNwc(response.data);
             } catch (error) {
                 console.error('Error fetching NWC', error);
+                showToast('error', 'Error Fetching NWC', 'An error occurred while fetching the NWC. Please try again.');
             }
         };
 
@@ -38,13 +42,14 @@ export default function ClaimPage() {
                     setClaimed(response.data.isClaimed);
                     if (response.data.isClaimed) {
                         console.error('Link already claimed');
-                        // Handle already claimed scenario, maybe set state or display a message
+                        showToast('warn', 'Link Already Claimed', 'This link has already been claimed.');
                     }
                 } catch (error) {
                     if (error.response.status === 404) {
                         setExists(false);
                     }
                     console.error('Error fetching link', error);
+                    showToast('error', 'Error Fetching Link', 'An error occurred while fetching the link. Please try again.');
                 }
             }
         };
@@ -52,7 +57,7 @@ export default function ClaimPage() {
         if (nwc && linkIndex !== undefined) {
             fetchLink();
         }
-    }, [nwc, linkIndex]); // This useEffect now correctly waits for `nwc` to be set    
+    }, [nwc, linkIndex]);
 
     const decryptNWCUrl = (encryptedUrl, secret) => {
         const decipher = crypto.createDecipher('aes-256-cbc', secret);
@@ -63,7 +68,6 @@ export default function ClaimPage() {
 
     const decodeLnurl = (lnurl, name) => {
         try {
-
             let { prefix: hrp, words: dataPart } = bech32.decode(lnurl, 2000)
             let requestByteArray = bech32.fromWords(dataPart)
 
@@ -71,7 +75,7 @@ export default function ClaimPage() {
             return decoded;
         } catch (error) {
             console.error('There was a problem decoding the lnurl:', name, error);
-            handleError(error);
+            showToast('error', 'LNURL Decoding Error', 'There was a problem decoding the LNURL.');
         }
     }
 
@@ -82,8 +86,7 @@ export default function ClaimPage() {
             const decoded = decodeLnurl(address);
 
             if (!decoded || !decoded.includes('/.well-known/')) {
-                // setToastMessage('This is not a valid lightning address');
-                // setShowToast(true);
+                showToast('warn', 'Invalid Lightning Address', 'This is not a valid lightning address.');
                 return false;
             } else {
                 return decoded;
@@ -94,8 +97,7 @@ export default function ClaimPage() {
             if (!!username && !!domain && domain.includes('.')) {
                 return address;
             } else {
-                // setToastMessage('This is not a valid lightning address');
-                // setShowToast(true);
+                showToast('warn', 'Invalid Lightning Address', 'This is not a valid lightning address.');
                 return false;
             }
         }
@@ -125,6 +127,7 @@ export default function ClaimPage() {
             }
         } catch (error) {
             console.error('Error:', error);
+            showToast('error', 'Error Fetching Invoice', 'An error occurred while fetching the invoice. Please try again.');
         }
     };
 
@@ -138,7 +141,7 @@ export default function ClaimPage() {
             return callback;
         } catch (error) {
             console.error('There was a problem fetching the callback:', error);
-            handleError(error);
+            showToast('error', 'Error Fetching Callback', 'There was a problem fetching the callback. Please try again.');
         }
     }
 
@@ -146,7 +149,6 @@ export default function ClaimPage() {
         e.preventDefault();
         if (nwc && secret) {
             const decryptedUrl = decryptNWCUrl(nwc.url, secret);
-            console.log('Decrypted NWC URL:', decryptedUrl);
             if (decryptedUrl) {
                 try {
                     if (lightningAddress) {
@@ -161,24 +163,27 @@ export default function ClaimPage() {
                                     await nwcInstance.enable();
                                     const sendPaymentResponse = await nwcInstance.sendPayment(invoice);
                                     console.log('sendPaymentResponse', sendPaymentResponse);
+                                    showToast('success', 'Payment Sent', 'The payment has been successfully sent.');
 
                                     // Update the link status to claimed
                                     console.log('Claiming link...', linkIndex);
                                     const response = await axios.put(`/api/links/${nwc.id}?nwcId=${nwc.id}&linkIndex=${linkIndex}`);
                                     console.log('Link claimed:', response.data);
+                                    showToast('success', 'Link Claimed', 'The link has been successfully claimed.');
                                 } else {
-                                    setToastMessage('Error fetching invoice');
-                                    setShowToast(true);
+                                    showToast('error', 'Error Fetching Invoice', 'An error occurred while fetching the invoice. Please try again.');
                                     return;
                                 }
                             }
                         } else {
                             console.error('Invalid Lightning Address');
+                            showToast('warn', 'Invalid Lightning Address', 'The provided lightning address is invalid.');
                             return;
                         }
                     }
                 } catch {
                     console.error('Error sending payment');
+                    showToast('error', 'Error Sending Payment', 'An error occurred while sending the payment. Please try again.');
                     return;
                 }
             }
@@ -191,14 +196,14 @@ export default function ClaimPage() {
 
     return (
         <main className="flex flex-col items-center justify-evenly p-8">
-            {!exists ? <h1>Link not found</h1> : (<>
-                <h1 className="text-4xl">{claimed ? 'Link Claimed' : 'Claim Link'}</h1>
+            {!exists ? <h1 className="text-6xl">Link not found</h1> : (<>
+                <h1 className="text-6xl">{claimed ? 'Link Claimed' : 'Claim Link'}</h1>
                 <div className="flex flex-col items-center">
-                    <p>Status: {claimed ? 'Claimed' : 'Unclaimed'}</p>
-                    {claimed ? null : <p>Amount: {nwc.maxAmount / nwc.numLinks} sats</p>}
+                    <p className='text-2xl'>Status: {claimed ? 'Claimed' : 'Unclaimed'}</p>
+                    {claimed ? null : <p className='text-2xl'>Amount: {nwc.maxAmount / nwc.numLinks} sats</p>}
                     <form onSubmit={handleSubmit} className="flex flex-col items-center">
                         <div className="flex flex-col items-center my-8">
-                            <label htmlFor="invoice">Enter Lightning Address</label>
+                            <label className='mb-2 text-2xl' htmlFor="lightning-address">Enter Lightning Address</label>
                             <InputText
                                 id="lightning-address"
                                 value={lightningAddress}

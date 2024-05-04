@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
 import { InputNumber } from 'primereact/inputnumber';
-import { Button } from 'primereact/button';
 import { Dialog } from 'primereact/dialog';
 import { nwc } from '@getalby/sdk';
 import { relayInit, nip04 } from 'nostr-tools';
+import { Button } from 'primereact/button';
 import AlbyButton from '@/components/AlbyButton';
 import MutinyButton from '@/components/MutinyButton';
 import axios from 'axios';
 import crypto from 'crypto';
 import useSubscribeToEvents from "@/hooks/useSubscribetoEvents";
+import { useToast } from '@/hooks/useToast';
+import 'primeicons/primeicons.css';
 
 const appPublicKey = "f2cee06b62c2e57192bf3a344618695da2ad3bf590645b6764959840b62f7bfc";
 const appPrivKey = "2ed6c9e8b1840b584af2ee06afcf8527307f7b687301812ec438ccfbd0fbe7f6";
@@ -22,6 +24,7 @@ export default function Home() {
   const [secret, setSecret] = useState('');
 
   const { subscribeToEvents, fetchedEvents } = useSubscribeToEvents();
+  const { showToast } = useToast();
 
   useEffect(() => {
     fetchedEvents.forEach(async (event) => {
@@ -47,6 +50,8 @@ export default function Home() {
                 .then(async (response) => {
                   if (response.status === 201 && response.data?.id) {
                     console.log('NWC created', response.data);
+                    showToast('success', 'NWC Created', 'The NWC has been successfully created.');
+
                     const generatedLinks = await generateLinks(response.data.id, secret);
                     setGeneratedLinks(generatedLinks);
                     setDialogVisible(true);
@@ -54,11 +59,13 @@ export default function Home() {
                 })
                 .catch((error) => {
                   console.error('Error creating NWC', error);
+                  showToast('error', 'Error Creating NWC', 'An error occurred while creating the NWC. Please try again.');
                 });
             }
           }
         } catch (error) {
           console.error('Error decrypting event', error);
+          showToast('error', 'Error Decrypting Event', 'An error occurred while decrypting the event. Please try again.');
         }
       }
     });
@@ -84,12 +91,12 @@ export default function Home() {
     const mutinySettingsUrl = `https://app.mutinywallet.com/settings/connections?nwa=${encodedNwaUri}`;
 
     window.open(mutinySettingsUrl, 'mutinyWindow', 'width=600,height=700');
+    showToast('info', 'Mutiny Wallet', 'Mutiny Wallet connection window opened.');
 
     subscribeToEvents([{ kinds: [33194], since: Math.round(Date.now() / 1000) }]);
   };
 
   const handleAlbySubmit = async () => {
-    console.log(`Generating ${numberOfLinks} links with ${satsPerLink} sats each.`);
     const newNwc = nwc.NWCClient.withNewSecret();
     const monthFromNow = new Date();
     monthFromNow.setMonth(monthFromNow.getMonth() + 1);
@@ -105,7 +112,9 @@ export default function Home() {
         expiresAt: monthFromNow,
       };
       await newNwc.initNWC(initNwcOptions);
+      showToast('info', 'Alby', 'Alby connection window opened.');
       const newNWCUrl = newNwc.getNostrWalletConnectUrl();
+
 
       if (newNWCUrl) {
         const { encryptedUrl, secret } = encryptNWCUrl(newNWCUrl);
@@ -119,6 +128,8 @@ export default function Home() {
           .then(async (response) => {
             if (response.status === 201 && response.data?.id) {
               console.log('NWC created', response.data);
+              showToast('success', 'NWC Created', 'The NWC has been successfully created.');
+
               const generatedLinks = await generateLinks(response.data.id, secret);
               setGeneratedLinks(generatedLinks);
               setDialogVisible(true);
@@ -126,12 +137,14 @@ export default function Home() {
           })
           .catch((error) => {
             console.error('Error creating NWC', error);
+            showToast('error', 'Error Creating NWC', 'An error occurred while creating the NWC. Please try again.');
           });
       } else {
         throw new Error('No NWC url returned');
       }
     } catch (e) {
       console.warn('Prompt closed', e);
+      showToast('warn', 'Prompt Closed', 'The prompt was closed without completing the action.');
     }
   };
 
@@ -149,21 +162,33 @@ export default function Home() {
         })
         .catch((error) => {
           console.error('Error creating link', error);
+          showToast('error', 'Error Creating Link', 'An error occurred while creating a link. Please try again.');
         });
     }
     return links;
   };
 
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        showToast('success', 'Link Copied', 'The link has been copied to your clipboard.');
+      })
+      .catch((error) => {
+        console.error('Error copying to clipboard', error);
+        showToast('error', 'Error Copying Link', 'An error occurred while copying the link to your clipboard.');
+      });
+  };
+
   return (
     <main className={'flex flex-col items-center justify-evenly p-8'}>
-      <h1 className="text-4xl">NWC Reward Links</h1>
+      <h1 className="text-6xl">BitcoinLink</h1>
       <div className='flex flex-col items-center'>
         <div className='flex flex-col items-center my-8'>
-          <label htmlFor='number'>Number of links</label>
+          <label className='mb-2 text-2xl' htmlFor='number'>Number of links</label>
           <InputNumber id='number' value={numberOfLinks} onValueChange={(e) => setNumberOfLinks(e.value)} />
         </div>
         <div className='flex flex-col items-center my-8'>
-          <label htmlFor='sats'>Sats per link</label>
+          <label className='mb-2 text-2xl' htmlFor='sats'>Sats per link</label>
           <InputNumber id='sats' value={satsPerLink} onValueChange={(e) => setSatsPerLink(e.value)} />
         </div>
         <div className='flex flex-col justify-between h-[12vh] my-8'>
@@ -172,13 +197,30 @@ export default function Home() {
         </div>
       </div>
 
-      <Dialog header="Generated Links" visible={dialogVisible} onHide={() => setDialogVisible(false)} style={{ width: '50vw' }}>
-        <ul>
-          {generatedLinks.map((link, index) => (
-            <li key={index}>{link}</li>
-          ))}
-        </ul>
-      </Dialog>
+      <Dialog
+  header="Generated Links"
+  visible={dialogVisible}
+  onHide={() => setDialogVisible(false)}
+  className="w-11/12 sm:w-3/4 md:w-1/2 lg:w-1/3 max-w-screen-sm"
+>
+  <div className="p-4 bg-gray-800 text-white">
+    <div className="space-y-4">
+      {generatedLinks.map((link, index) => (
+        <div key={index} className="bg-gray-700 p-4 rounded-md shadow-md flex flex-col">
+          <a
+            href={link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-400 hover:text-blue-500 break-words"
+          >
+            {link}
+          </a>
+          <Button className='flex self-end' icon="pi pi-copy" severity="success" aria-label="copy" onClick={() => copyToClipboard(link)} />
+        </div>
+      ))}
+    </div>
+  </div>
+</Dialog>
     </main>
   );
 }
