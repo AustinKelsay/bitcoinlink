@@ -14,4 +14,13 @@ model NWC {
   expiresAt     DateTime
   maxAmount     Int
   numLinks      Int
+  links         Link[]
+}
+
+model Link {
+  id          String   @id @default(cuid())
+  linkIndex   Int
+  nwcId       String
+  nwc         NWC      @relation(fields: [nwcId], references: [id])
+  isClaimed   Boolean  @default(false)
 }

@@ -1,21 +1,35 @@
-import { getLinkById, deleteLink } from "../../../models/linkModels";
+import { getLinkByNwcIdAndIndex, deleteLink, claimLink } from "../../../models/linkModels";
 
 export default async function handler(req, res) {
-    const { slug } = req.query;
+    const { nwcId, linkIndex } = req.query;
 
     if (req.method === 'GET') {
         try {
-            const nwc = await getLinkById(slug);
-            res.status(200).json(nwc);
+            const link = await getLinkByNwcIdAndIndex(nwcId, parseInt(linkIndex));
+            if (link) {
+                res.status(200).json(link);
+            } else {
+                res.status(404).json({ error: 'Link not found' });
+            }
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            console.error(error);
+            res.status(500).json({ error: 'Internal server error' });
         }
     } else if (req.method === 'DELETE') {
         try {
-            const nwc = await deleteLink(slug);
-            res.status(200).json(nwc);
+            const link = await deleteLink(nwcId);  // Assumes nwcId uniquely identifies a link
+            res.status(204).end();
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            console.error(error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    } else if (req.method === 'PUT') {
+        try {
+            const link = await claimLink(nwcId, parseInt(linkIndex));
+            res.status(204).end();
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({ error: 'Internal server error' });
         }
     } else {
         // Handle any other HTTP method

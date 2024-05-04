@@ -8,7 +8,7 @@ import AlbyButton from '@/components/AlbyButton';
 import MutinyButton from '@/components/MutinyButton';
 import axios from 'axios';
 import crypto from 'crypto';
-import useSubscribeToEvents from "@/hooks/useSubscribeToEvents";
+import useSubscribeToEvents from "../hooks/useSubscribeToEvents";
 
 const appPublicKey = "f2cee06b62c2e57192bf3a344618695da2ad3bf590645b6764959840b62f7bfc";
 const appPrivKey = "2ed6c9e8b1840b584af2ee06afcf8527307f7b687301812ec438ccfbd0fbe7f6";
@@ -138,8 +138,18 @@ export default function Home() {
   const generateLinks = async (nwcId, secret) => {
     const links = [];
     for (let i = 0; i < numberOfLinks; i++) {
-      const link = `bitcoinlink.app/claim/${nwcId}?secret=${secret}`;
+      const link = `bitcoinlink.app/claim/${nwcId}?secret=${secret}&linkIndex=${i}`;
       links.push(link);
+      axios.post('/api/links', {
+        nwcId,
+        linkIndex: i,
+      })
+        .then((response) => {
+          console.log('Link created', response.data);
+        })
+        .catch((error) => {
+          console.error('Error creating link', error);
+        });
     }
     return links;
   };
