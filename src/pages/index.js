@@ -8,7 +8,7 @@ import AlbyButton from '@/components/AlbyButton';
 import MutinyButton from '@/components/MutinyButton';
 import axios from 'axios';
 import crypto from 'crypto';
-import useSubscribeToEvents from "../hooks/useSubscribeToEvents";
+import useSubscribeToEvents from "@/hooks/useSubscribetoEvents";
 
 const appPublicKey = "f2cee06b62c2e57192bf3a344618695da2ad3bf590645b6764959840b62f7bfc";
 const appPrivKey = "2ed6c9e8b1840b584af2ee06afcf8527307f7b687301812ec438ccfbd0fbe7f6";
