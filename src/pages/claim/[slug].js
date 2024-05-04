@@ -217,7 +217,7 @@ export default function ClaimPage() {
                     </form>
                     <div className='flex flex-col my-6'>
                         <p className='text-2xl'>Coming soon! claim instantly with:</p>
-                        <div className='flex flex-col w-[225px] justify-between mx-auto h-[18vh]'>
+                        <div className='flex flex-col w-[225px] justify-between mx-auto md:h-[18vh] h-[25vh]'>
                             <AlbyButton handleSubmit={() => null} disabled={true} />
                             <MutinyButton handleSubmit={() => null} disabled={true} />
                             <CashAppButton handleSubmit={() => null} disabled={true} />
