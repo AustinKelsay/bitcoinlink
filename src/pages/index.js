@@ -207,14 +207,9 @@ export default function Home() {
     <div className="space-y-4">
       {generatedLinks.map((link, index) => (
         <div key={index} className="bg-gray-700 p-4 rounded-md shadow-md flex flex-col">
-          <a
-            href={link}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-400 hover:text-blue-500 break-words"
-          >
+          <p className='break-words'>
             {link}
-          </a>
+          </p>
           <Button className='flex self-end' icon="pi pi-copy" severity="success" aria-label="copy" onClick={() => copyToClipboard(link)} />
         </div>
       ))}
