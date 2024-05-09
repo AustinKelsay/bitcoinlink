@@ -20,6 +20,8 @@
 } */
 
 body {
+  margin: 0;
+  padding: 0%;
   color: rgb(var(--foreground-rgb));
   font-family: 'Jersey 15', sans-serif;
   background: linear-gradient(

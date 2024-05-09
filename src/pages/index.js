@@ -10,6 +10,7 @@ import axios from 'axios';
 import crypto from 'crypto';
 import useSubscribeToEvents from "@/hooks/useSubscribetoEvents";
 import { useToast } from '@/hooks/useToast';
+import { v4 as uuidv4 } from 'uuid';
 import 'primeicons/primeicons.css';
 
 const appPublicKey = "f2cee06b62c2e57192bf3a344618695da2ad3bf590645b6764959840b62f7bfc";
@@ -151,11 +152,12 @@ export default function Home() {
   const generateLinks = async (nwcId, secret) => {
     const links = [];
     for (let i = 0; i < numberOfLinks; i++) {
-      const link = `bitcoinlink.app/claim/${nwcId}?secret=${secret}&linkIndex=${i}`;
+      const linkIndex = uuidv4();
+      const link = `bitcoinlink.app/claim/${nwcId}?secret=${secret}&linkIndex=${linkIndex}`;
       links.push(link);
       axios.post('/api/links', {
         nwcId,
-        linkIndex: i,
+        linkIndex: linkIndex,
       })
         .then((response) => {
           console.log('Link created', response.data);

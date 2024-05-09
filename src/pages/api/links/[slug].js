@@ -5,7 +5,7 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') {
         try {
-            const link = await getLinkByNwcIdAndIndex(nwcId, parseInt(linkIndex));
+            const link = await getLinkByNwcIdAndIndex(nwcId, linkIndex);
             if (link) {
                 res.status(200).json(link);
             } else {
@@ -25,7 +25,7 @@ export default async function handler(req, res) {
         }
     } else if (req.method === 'PUT') {
         try {
-            const link = await claimLink(nwcId, parseInt(linkIndex));
+            const link = await claimLink(nwcId, linkIndex);
             res.status(204).end();
         } catch (error) {
             console.error(error);

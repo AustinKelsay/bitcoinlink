@@ -113,7 +113,6 @@ export default function ClaimPage() {
         // Check if the callback URL already has a query string
         const urlSeparator = callback.includes('?') ? '&' : '?';
         const url = `${callback}${urlSeparator}amount=${amount}&comment=${encodedComment}`;
-        console.log('URL:', url);
 
         try {
             const response = await fetch(url, {
@@ -121,7 +120,6 @@ export default function ClaimPage() {
             });
 
             const data = await response.json();
-            console.log('Data:', data);
 
             if (data.pr) {
                 return data.pr;
@@ -169,10 +167,14 @@ export default function ClaimPage() {
                                     showToast('success', 'Payment Sent', 'The payment has been successfully sent.');
 
                                     // Update the link status to claimed
-                                    console.log('Claiming link...', linkIndex);
                                     const response = await axios.put(`/api/links/${nwc.id}?nwcId=${nwc.id}&linkIndex=${linkIndex}`);
                                     console.log('Link claimed:', response.data);
                                     showToast('success', 'Link Claimed', 'The link has been successfully claimed.');
+
+                                    setTimeout(() => {
+                                        // refresh the page
+                                        router.replace(router.asPath);
+                                    }, 5000);
                                 } else {
                                     showToast('error', 'Error Fetching Invoice', 'An error occurred while fetching the invoice. Please try again.');
                                     return;
