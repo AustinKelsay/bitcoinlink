@@ -25,7 +25,7 @@ model NWC {
 
 model Link {
   id          String   @id @default(cuid())
-  linkIndex   String   @unique @default(cuid())
+  linkIndex   Int
   nwcId       String
   nwc         NWC      @relation(fields: [nwcId], references: [id])
   isClaimed   Boolean  @default(false)
