@@ -15,6 +15,25 @@ export const getLinkByNwcIdAndIndex = async (nwcId, linkIndex) => {
     });
 };
 
+export const getNewLink = async (nwcId) => {
+    return await prisma.Link.findFirst({
+        where: {
+            nwcId,
+            isClaimed: false,
+            wasServedAPI: false
+        }
+    });
+};
+
+export const markLinkServed = async (id) => {
+    return await prisma.Link.update({
+        where: { id },
+        data: {
+            wasServedAPI: true
+        }
+    });
+}
+
 export const createLink = async (data) => {
     return await prisma.Link.create({
         data,

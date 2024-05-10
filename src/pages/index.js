@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
 import { InputNumber } from 'primereact/inputnumber';
-import { Dialog } from 'primereact/dialog';
 import { nwc } from '@getalby/sdk';
-import { relayInit, nip04 } from 'nostr-tools';
-import { Button } from 'primereact/button';
+import { nip04 } from 'nostr-tools';
 import AlbyButton from '@/components/AlbyButton';
 import MutinyButton from '@/components/MutinyButton';
 import axios from 'axios';
@@ -12,6 +10,7 @@ import useSubscribeToEvents from "@/hooks/useSubscribetoEvents";
 import { useToast } from '@/hooks/useToast';
 import { v4 as uuidv4 } from 'uuid';
 import 'primeicons/primeicons.css';
+import LinkModal from '@/components/linkModal';
 
 const appPublicKey = "f2cee06b62c2e57192bf3a344618695da2ad3bf590645b6764959840b62f7bfc";
 const appPrivKey = "2ed6c9e8b1840b584af2ee06afcf8527307f7b687301812ec438ccfbd0fbe7f6";
@@ -74,6 +73,7 @@ export default function Home() {
 
   const encryptNWCUrl = (url) => {
     const secret = crypto.randomBytes(32).toString('hex');
+    setSecret(secret);
     const cipher = crypto.createCipher('aes-256-cbc', secret);
     let encryptedUrl = cipher.update(url, 'utf8', 'hex');
     encryptedUrl += cipher.final('hex');
@@ -170,17 +170,6 @@ export default function Home() {
     return links;
   };
 
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text)
-      .then(() => {
-        showToast('success', 'Link Copied', 'The link has been copied to your clipboard.');
-      })
-      .catch((error) => {
-        console.error('Error copying to clipboard', error);
-        showToast('error', 'Error Copying Link', 'An error occurred while copying the link to your clipboard.');
-      });
-  };
-
   return (
     <main className={'flex flex-col items-center justify-evenly p-8'}>
       <h1 className="text-6xl">BitcoinLink</h1>
@@ -198,26 +187,10 @@ export default function Home() {
           <MutinyButton handleSubmit={handleMutinySubmit} disabled={true} />
         </div>
       </div>
-
-      <Dialog
-  header="Generated Links"
-  visible={dialogVisible}
-  onHide={() => setDialogVisible(false)}
-  className="w-11/12 sm:w-3/4 md:w-1/2 lg:w-1/3 max-w-screen-sm"
->
-  <div className="p-4 bg-gray-800 text-white">
-    <div className="space-y-4">
-      {generatedLinks.map((link, index) => (
-        <div key={index} className="bg-gray-700 p-4 rounded-md shadow-md flex flex-col">
-          <p className='break-words'>
-            {link}
-          </p>
-          <Button className='flex self-end' icon="pi pi-copy" severity="success" aria-label="copy" onClick={() => copyToClipboard(link)} />
-        </div>
-      ))}
-    </div>
-  </div>
-</Dialog>
+      {secret && generatedLinks && generatedLinks.length > 0 && dialogVisible && (
+          <LinkModal generatedLinks={generatedLinks} dialogVisible={dialogVisible} setDialogVisible={setDialogVisible} secret={secret} />
+        )
+      }
     </main>
   );
 }

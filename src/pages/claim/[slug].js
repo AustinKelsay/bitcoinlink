@@ -4,6 +4,7 @@ import axios from 'axios';
 import crypto from 'crypto';
 import { InputText } from 'primereact/inputtext';
 import { Button } from 'primereact/button';
+import { ProgressSpinner } from 'primereact/progressspinner';
 import { webln } from "@getalby/sdk";
 import { useToast } from '@/hooks/useToast';
 import AlbyButton from '@/components/AlbyButton';
@@ -17,6 +18,7 @@ export default function ClaimPage() {
     const [lightningAddress, setLightningAddress] = useState('');
     const [claimed, setClaimed] = useState(false);
     const [exists, setExists] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const { showToast } = useToast();
 
@@ -148,6 +150,7 @@ export default function ClaimPage() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setIsSubmitting(true);
         if (nwc && secret) {
             const decryptedUrl = decryptNWCUrl(nwc.url, secret);
             if (decryptedUrl) {
@@ -170,24 +173,27 @@ export default function ClaimPage() {
                                     const response = await axios.put(`/api/links/${nwc.id}?nwcId=${nwc.id}&linkIndex=${linkIndex}`);
                                     console.log('Link claimed:', response.data);
                                     showToast('success', 'Link Claimed', 'The link has been successfully claimed.');
-
                                     setTimeout(() => {
-                                        // refresh the page
-                                        router.replace(router.asPath);
-                                    }, 5000);
+                                        setIsSubmitting(false);
+                                        setClaimed(true);
+                                    } , 2000);
                                 } else {
+                                    console.error('Error fetching invoice');
+                                    setIsSubmitting(false);
                                     showToast('error', 'Error Fetching Invoice', 'An error occurred while fetching the invoice. Please try again.');
                                     return;
                                 }
                             }
                         } else {
                             console.error('Invalid Lightning Address');
+                            setIsSubmitting(false);
                             showToast('warn', 'Invalid Lightning Address', 'The provided lightning address is invalid.');
                             return;
                         }
                     }
                 } catch {
                     console.error('Error sending payment');
+                    setIsSubmitting(false);
                     showToast('error', 'Error Sending Payment', 'An error occurred while sending the payment. Please try again.');
                     return;
                 }
@@ -196,7 +202,7 @@ export default function ClaimPage() {
     };
 
     if (!nwc) {
-        return <div>Loading...</div>;
+        return <div className='w-full mx-auto'>Loading...</div>;
     }
 
     return (
@@ -215,7 +221,11 @@ export default function ClaimPage() {
                                 onChange={(e) => setLightningAddress(e.target.value)}
                             />
                         </div>
-                        <Button disabled={claimed} label="Claim" severity="success" type="submit" />
+                        {isSubmitting ? (
+                            <ProgressSpinner style={{width: '50px', height: '50px'}} strokeWidth="8" animationDuration=".5s" />
+                        ) : (
+                            <Button disabled={claimed} label="Claim" severity="success" type="submit" />
+                        )}
                     </form>
                     <div className='flex flex-col my-6'>
                         <p className='text-2xl'>Coming soon! claim instantly with:</p>
