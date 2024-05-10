@@ -4,6 +4,7 @@ export default async function handler(req, res) {
     const { slug } = req.query;
     const token = req.headers.authorization;
     console.log('TOKENNNN', token);
+    console.log('headers', req.headers)
 
     if (req.method === 'GET') {
         try {
