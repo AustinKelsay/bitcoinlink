@@ -222,7 +222,7 @@ export default function ClaimPage() {
                             />
                         </div>
                         {isSubmitting ? (
-                            <ProgressSpinner style={{width: '50px', height: '50px'}} strokeWidth="8" animationDuration=".5s" />
+                            <ProgressSpinner style={{width: '50px', height: '50px'}} strokeWidth="8" animationDuration=".8s" />
                         ) : (
                             <Button disabled={claimed} label="Claim" severity="success" type="submit" />
                         )}
