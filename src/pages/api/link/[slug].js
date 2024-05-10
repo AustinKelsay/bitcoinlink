@@ -2,12 +2,9 @@ import { getNewLink, markLinkServed } from "@/models/linkModels";
 
 export default async function handler(req, res) {
     const { slug } = req.query;
-    let token = req.headers.authorization;
-
-    if (!token && req.headers['x-vercel-sc-headers']) {
-        const scHeaders = JSON.parse(req.headers['x-vercel-sc-headers']);
-        token = scHeaders.Authorization;
-    }
+    const token = req.headers.authorization;
+    console.log('TOKENNNN', token);
+    console.log('headers', req.headers)
 
     if (req.method === 'GET') {
         try {
