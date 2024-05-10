@@ -3,6 +3,7 @@ import { getNewLink, markLinkServed } from "@/models/linkModels";
 export default async function handler(req, res) {
     const { slug } = req.query;
     const token = req.headers.authorization;
+    console.log('TOKENNNN', token);
 
     if (req.method === 'GET') {
         try {
@@ -20,7 +21,7 @@ export default async function handler(req, res) {
 
             // Mark the link as served
             await markLinkServed(linkMetaData.id);
-            
+
             res.status(200).json(newLink);
         } catch (error) {
             res.status(500).json({ error: error.message });
