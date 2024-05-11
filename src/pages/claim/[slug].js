@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
 import crypto from 'crypto';
+import {getBolt11Descirption, validateBolt11} from '@/utils/bolt11';
 import { InputText } from 'primereact/inputtext';
 import { Button } from 'primereact/button';
 import { ProgressSpinner } from 'primereact/progressspinner';
 import { webln } from "@getalby/sdk";
 import { useToast } from '@/hooks/useToast';
+import { bech32 } from 'bech32';
 import AlbyButton from '@/components/AlbyButton';
 import MutinyButton from '@/components/MutinyButton';
 import CashAppButton from '@/components/CashAppButton';
@@ -84,29 +86,137 @@ export default function ClaimPage() {
         }
     }
 
-    const parseLightningAddress = (address) => {
-        if (typeof address !== 'string') return false;
-
-        if (address.toLowerCase().startsWith('lnurl' || 'LNURL')) {
-            const decoded = decodeLnurl(address);
-
-            if (!decoded || !decoded.includes('/.well-known/')) {
-                showToast('warn', 'Invalid Lightning Address', 'This is not a valid lightning address.');
+    const parseLightningAddress = (input) => {
+        if (typeof input !== 'string') return false;
+    
+        if (input.toLowerCase().startsWith('lnurl')) {
+            const decoded = decodeLnurl(input);
+    
+            if (!decoded) {
+                showToast('warn', 'Invalid LNURL', 'This is not a valid LNURL.');
                 return false;
             } else {
-                return decoded;
+                console.log('Decoded LNURL:', decoded);
+                return { type: 'lnurl', data: decoded };
+            }
+        } else if (input.toLowerCase().startsWith('lnbc')) {
+            // Validate the invoice
+            try {
+                const valid = validateBolt11(input);
+                if (!valid) {
+                    showToast('warn', 'Invalid Invoice', 'This is not a valid invoice.');
+                    return false;
+                }
+                return { type: 'invoice', data: input };
+            } catch (error) {
+                showToast('warn', 'Invalid Invoice', 'This is not a valid invoice.');
+                return false;
             }
         } else {
-            const [username, domain] = address.split('@');
-
+            const [username, domain] = input.split('@');
+    
             if (!!username && !!domain && domain.includes('.')) {
-                return address;
+                return { type: 'address', data: input };
             } else {
                 showToast('warn', 'Invalid Lightning Address', 'This is not a valid lightning address.');
                 return false;
             }
         }
     }
+    
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setIsSubmitting(true);
+        if (nwc && secret) {
+            const decryptedUrl = decryptNWCUrl(nwc.url, secret);
+            if (decryptedUrl) {
+                try {
+                    if (lightningAddress) {
+                        const validInput = parseLightningAddress(lightningAddress);
+                        if (validInput) {
+                            let invoice;
+                            if (validInput.type === 'lnurl') {
+                                const response = await fetch(validInput.data);
+                                const lnurlPayData = await response.json();
+    
+                                if (lnurlPayData.tag === 'payRequest') {
+                                    const amount = (nwc.maxAmount / nwc.numLinks) * 1000;
+                                    if (amount >= lnurlPayData.minSendable && amount <= lnurlPayData.maxSendable) {
+                                        const invoiceResponse = await fetch(`${lnurlPayData.callback}?amount=${amount}`);
+                                        const invoiceData = await invoiceResponse.json();
+                                        console.log('Invoice data:', invoiceData);
+                                        invoice = invoiceData.pr;
+    
+                                        // // Verify the metadata hash
+                                        // const metadataHash = sha256(utf8ToBytes(lnurlPayData.metadata));
+                                        // const invoiceDescription = getBolt11Descirption(invoice);
+                                        // console.log('Metadata hash:', metadataHash);
+                                        // console.log('Invoice description:', invoiceDescription);
+                                        // if (invoiceDescription !== metadataHash) {
+                                        //     console.error('Metadata hash mismatch');
+                                        //     setIsSubmitting(false);
+                                        //     showToast('error', 'Metadata Hash Mismatch', 'The metadata hash in the invoice does not match the expected hash.');
+                                        //     return;
+                                        // }
+                                    } else {
+                                        console.error('Amount out of range');
+                                        setIsSubmitting(false);
+                                        showToast('error', 'Amount Out of Range', 'The requested amount is not within the acceptable range for this LNURL-pay.');
+                                        return;
+                                    }
+                                } else {
+                                    console.error('Invalid LNURL-pay data');
+                                    setIsSubmitting(false);
+                                    showToast('error', 'Invalid LNURL-pay Data', 'The LNURL-pay data returned from the server is invalid.');
+                                    return;
+                                }
+                            } else if (validInput.type === 'invoice') {
+                                invoice = validInput.data;
+                            } else if (validInput.type === 'address') {
+                                const callback = await getCallback(validInput.data);
+                                if (callback) {
+                                    const amount = (nwc.maxAmount / nwc.numLinks) * 1000;
+                                    invoice = await fetchInvoice({ callback: callback, amount: amount });
+                                }
+                            }
+    
+                            if (invoice) {
+                                const nwcInstance = new webln.NostrWebLNProvider({ nostrWalletConnectUrl: decryptedUrl });
+                                await nwcInstance.enable();
+                                const sendPaymentResponse = await nwcInstance.sendPayment(invoice);
+                                console.log('sendPaymentResponse', sendPaymentResponse);
+                                showToast('success', 'Payment Sent', 'The payment has been successfully sent.');
+    
+                                // Update the link status to claimed
+                                const response = await axios.put(`/api/links/${nwc.id}?nwcId=${nwc.id}&linkIndex=${linkIndex}`);
+                                console.log('Link claimed:', response.data);
+                                showToast('success', 'Link Claimed', 'The link has been successfully claimed.');
+                                setTimeout(() => {
+                                    setIsSubmitting(false);
+                                    setClaimed(true);
+                                }, 2000);
+                            } else {
+                                console.error('Error fetching invoice');
+                                setIsSubmitting(false);
+                                showToast('error', 'Error Fetching Invoice', 'An error occurred while fetching the invoice. Please try again.');
+                                return;
+                            }
+                        } else {
+                            console.error('Invalid Input');
+                            setIsSubmitting(false);
+                            showToast('warn', 'Invalid Input', 'The provided input is invalid.');
+                            return;
+                        }
+                    }
+                } catch {
+                    console.error('Error sending payment');
+                    setIsSubmitting(false);
+                    showToast('error', 'Error Sending Payment', 'An error occurred while sending the payment. Please try again.');
+                    return;
+                }
+            }
+        }
+    };
 
     const fetchInvoice = async ({ callback, amount }) => {
         const comment = "Reward";
@@ -148,65 +258,12 @@ export default function ClaimPage() {
         }
     }
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setIsSubmitting(true);
-        if (nwc && secret) {
-            const decryptedUrl = decryptNWCUrl(nwc.url, secret);
-            if (decryptedUrl) {
-                try {
-                    if (lightningAddress) {
-                        const validLnAddress = parseLightningAddress(lightningAddress);
-                        if (validLnAddress) {
-                            const callback = await getCallback(validLnAddress);
-                            if (callback) {
-                                const amount = (nwc.maxAmount / nwc.numLinks) * 1000;
-                                const invoice = await fetchInvoice({ callback: callback, amount: amount });
-                                if (invoice) {
-                                    const nwcInstance = new webln.NostrWebLNProvider({ nostrWalletConnectUrl: decryptedUrl });
-                                    await nwcInstance.enable();
-                                    const sendPaymentResponse = await nwcInstance.sendPayment(invoice);
-                                    console.log('sendPaymentResponse', sendPaymentResponse);
-                                    showToast('success', 'Payment Sent', 'The payment has been successfully sent.');
-
-                                    // Update the link status to claimed
-                                    const response = await axios.put(`/api/links/${nwc.id}?nwcId=${nwc.id}&linkIndex=${linkIndex}`);
-                                    console.log('Link claimed:', response.data);
-                                    showToast('success', 'Link Claimed', 'The link has been successfully claimed.');
-                                    setTimeout(() => {
-                                        setIsSubmitting(false);
-                                        setClaimed(true);
-                                    } , 2000);
-                                } else {
-                                    console.error('Error fetching invoice');
-                                    setIsSubmitting(false);
-                                    showToast('error', 'Error Fetching Invoice', 'An error occurred while fetching the invoice. Please try again.');
-                                    return;
-                                }
-                            }
-                        } else {
-                            console.error('Invalid Lightning Address');
-                            setIsSubmitting(false);
-                            showToast('warn', 'Invalid Lightning Address', 'The provided lightning address is invalid.');
-                            return;
-                        }
-                    }
-                } catch {
-                    console.error('Error sending payment');
-                    setIsSubmitting(false);
-                    showToast('error', 'Error Sending Payment', 'An error occurred while sending the payment. Please try again.');
-                    return;
-                }
-            }
-        }
-    };
-
     if (!nwc) {
         return <div className='w-full mx-auto'>Loading...</div>;
     }
 
     return (
-        <main className="flex flex-col items-center justify-evenly p-8">
+        <main className="flex flex-col items-center justify-evenly p-8 sm:w-[80vw] md:w-[70vw] lg:w-[60vw] xl:w-[50vw] mx-auto">
             {!exists ? <h1 className="text-6xl">Link not found</h1> : (<>
                 <h1 className="text-6xl">{claimed ? 'Link Claimed' : 'Claim Link'}</h1>
                 <div className="flex flex-col items-center">
@@ -214,9 +271,11 @@ export default function ClaimPage() {
                     {claimed ? null : <p className='text-2xl'>Amount: {nwc.maxAmount / nwc.numLinks} sats</p>}
                     <form onSubmit={handleSubmit} className="flex flex-col items-center">
                         <div className="flex flex-col items-center my-8">
-                            <label className='mb-2 text-2xl' htmlFor="lightning-address">Enter Lightning Address</label>
+                            <label className='mb-2 text-2xl' htmlFor="lightning-address">Enter any Lightning Address, Bolt11 Invoice, or LNURL</label>
                             <InputText
+                                className="w-full"
                                 id="lightning-address"
+                                placeholder='user@website.com... or lnbc1q or LNURL1...'
                                 value={lightningAddress}
                                 onChange={(e) => setLightningAddress(e.target.value)}
                             />
