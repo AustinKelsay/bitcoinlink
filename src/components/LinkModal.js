@@ -5,82 +5,89 @@ import { TabView, TabPanel } from 'primereact/tabview';
 import { useToast } from "@/hooks/useToast";
 
 const LinkModal = ({ generatedLinks, dialogVisible, setDialogVisible, secret }) => {
-    const [nwcId, setNwcId] = useState('');
-    const { showToast } = useToast();
+  const [nwcId, setNwcId] = useState('');
+  const { showToast } = useToast();
 
-    useEffect(() => {
-        if (generatedLinks && generatedLinks.length > 0) {
-            // Find the last occurrence of '/'
-            const lastSlashIndex = generatedLinks[0].lastIndexOf('/');
-
-            // Find the first occurrence of '?' after the last '/'
-            const questionMarkIndex = generatedLinks[0].indexOf('?', lastSlashIndex);
-
-            // Extract the substring between these indices
-            const valueBetween = generatedLinks[0].substring(lastSlashIndex + 1, questionMarkIndex);
-
-            setNwcId(valueBetween);
-        }
+  useEffect(() => {
+    if (generatedLinks && generatedLinks.length > 0) {
+      // Find the last occurrence of '/'
+      const lastSlashIndex = generatedLinks[0].lastIndexOf('/');
+      // Find the first occurrence of '?' after the last '/'
+      const questionMarkIndex = generatedLinks[0].indexOf('?', lastSlashIndex);
+      // Extract the substring between these indices
+      const valueBetween = generatedLinks[0].substring(lastSlashIndex + 1, questionMarkIndex);
+      setNwcId(valueBetween);
     }
-        , [generatedLinks])
+  }, [generatedLinks])
 
-    const copyToClipboard = (text) => {
-        navigator.clipboard.writeText(text)
-            .then(() => {
-                showToast('success', 'Link Copied', 'The link has been copied to your clipboard.');
-            })
-            .catch((error) => {
-                console.error('Error copying to clipboard', error);
-                showToast('error', 'Error Copying Link', 'An error occurred while copying the link to your clipboard.');
-            });
-    };
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        showToast('success', 'Link Copied', 'The link has been copied to your clipboard.');
+      })
+      .catch((error) => {
+        console.error('Error copying to clipboard', error);
+        showToast('error', 'Error Copying Link', 'An error occurred while copying the link to your clipboard.');
+      });
+  };
 
-    if (!generatedLinks) {
-        return null;
-    }
+  if (!generatedLinks) {
+    return null;
+  }
 
-    return (
-        <Dialog
-            header="Generated Links"
-            visible={dialogVisible}
-            onHide={() => setDialogVisible(false)}
-            className="w-11/12 sm:w-3/4 md:w-1/2 lg:w-1/3 max-w-screen-sm"
-        >
-            <TabView>
-                <TabPanel header="Links">
-
-                    <div className="p-4 bg-gray-800 text-white">
-                        <div className="space-y-4">
-                            {generatedLinks?.map((link, index) => (
-                                <div key={index} className="bg-gray-700 p-4 rounded-md shadow-md flex flex-col">
-                                    <p className='break-words'>
-                                        {link}
-                                    </p>
-                                    <Button className='flex self-end' icon="pi pi-copy" severity="success" aria-label="copy" onClick={() => copyToClipboard(link)} />
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </TabPanel>
-                {generatedLinks && generatedLinks.length > 0 && nwcId && (
-                    <TabPanel header="Links through API">
-                        <p className="m-0">
-                            Everything needed to generate links has been saved to the database except for the secret. The secret is only available once on this page. If you leave this page, you will need to generate new links.
-                            <br />
-                            <br />
-                            API URL: https://bitcoinlink.app/api/link/{nwcId}
-                            <br />
-                            <br />
-                            Secret: <p className="break-words">{secret}</p>
-                            <br />
-                            <br />
-                            Make a GET request to the API URL with the secret in the Authorization header to get the link.
-                        </p>
-                    </TabPanel>
-                )}
-            </TabView>
-        </Dialog>
-    )
+  return (
+    <Dialog
+      header="Generated Links"
+      visible={dialogVisible}
+      onHide={() => setDialogVisible(false)}
+      className="sm:w-[80vw] md:w-[70vw] lg:w-[60vw] xl:w-[50vw]"
+    >
+      <TabView>
+        <TabPanel header="Links">
+          <div className="p-4 bg-gray-800 text-white">
+            <div className="space-y-4">
+              {generatedLinks?.map((link, index) => (
+                <div key={index} className="bg-gray-700 p-4 rounded-md shadow-md flex flex-col">
+                  <div className="overflow-x-auto">
+                    <a className="break-words" href={`https://www.${link}`} target="_blank" rel="noopener noreferrer">
+                      {link}
+                    </a>
+                  </div>
+                  <Button className="flex self-end" icon="pi pi-copy" severity="success" aria-label="copy" onClick={() => copyToClipboard(link)} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </TabPanel>
+        {generatedLinks && generatedLinks.length > 0 && nwcId && (
+          <TabPanel header="API Integration">
+          <div className="p-4 bg-gray-800 text-white">
+            <p className="mb-4">
+              To generate links programmatically, use the API endpoint below with the provided secret. Please note that the secret is only available on this page and will not be shown again. If you leave this page, you will need to generate new links to obtain a new secret.
+            </p>
+            <div className="bg-gray-700 p-4 rounded-md shadow-md">
+              <p className="text-lg font-bold mb-2">API Endpoint:</p>
+              <div className="overflow-x-auto mb-4">
+                <pre className="bg-gray-900 text-white p-2 rounded-md">
+                  <code>GET https://bitcoinlink.app/api/link/{nwcId}</code>
+                </pre>
+              </div>
+              <p className="text-lg font-bold mb-2">Secret:</p>
+              <div className="overflow-x-auto mb-4">
+                <pre className="bg-gray-900 text-white p-2 rounded-md break-all">
+                  <code>{secret}</code>
+                </pre>
+              </div>
+              <p>
+                To get a link, make a GET request to the API URL with the secret included in the Authorization header.
+              </p>
+            </div>
+          </div>
+        </TabPanel>
+        )}
+      </TabView>
+    </Dialog>
+  )
 }
 
 export default LinkModal;
