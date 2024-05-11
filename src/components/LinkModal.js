@@ -69,13 +69,13 @@ const LinkModal = ({ generatedLinks, dialogVisible, setDialogVisible, secret }) 
               <p className="text-lg font-bold mb-2">API Endpoint:</p>
               <div className="overflow-x-auto mb-4">
                 <pre className="bg-gray-900 text-white p-2 rounded-md">
-                  <code>GET https://bitcoinlink.app/api/link/{nwcId}</code>
+                  <code className="bg-gray-900 text-white p-2 rounded-md">GET https://bitcoinlink.app/api/link/{nwcId}</code>
                 </pre>
               </div>
               <p className="text-lg font-bold mb-2">Secret:</p>
               <div className="overflow-x-auto mb-4">
                 <pre className="bg-gray-900 text-white p-2 rounded-md break-all">
-                  <code>{secret}</code>
+                  <code className="bg-gray-900 text-white p-2 rounded-md">{secret}</code>
                 </pre>
               </div>
               <p>
