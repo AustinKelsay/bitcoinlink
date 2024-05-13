@@ -6,7 +6,7 @@ import AlbyButton from '@/components/AlbyButton';
 import MutinyButton from '@/components/MutinyButton';
 import axios from 'axios';
 import crypto from 'crypto';
-import useSubscribeToEvents from "@/hooks/useSubscribeToEvents.js";
+import useSubscribeToEvents from "../hooks/useSubscribeToEvents.js";
 import { useToast } from '@/hooks/useToast';
 import { v4 as uuidv4 } from 'uuid';
 import 'primeicons/primeicons.css';
