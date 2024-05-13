@@ -16,7 +16,7 @@ const initialRelays = [
     "wss://relay.primal.net"
 ];
 
-const useSubscribeToEvents = () => {
+const useSubscribetoEvents = () => {
     const [relays, setRelays] = useState(initialRelays);
     const [fetchedEvents, setFetchedEvents] = useState([])
 
@@ -48,4 +48,4 @@ const useSubscribeToEvents = () => {
     };
 };
 
-export default useSubscribeToEvents;
+export default useSubscribetoEvents;

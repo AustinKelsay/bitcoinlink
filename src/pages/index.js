@@ -6,7 +6,7 @@ import AlbyButton from '@/components/AlbyButton';
 import MutinyButton from '@/components/MutinyButton';
 import axios from 'axios';
 import crypto from 'crypto';
-import useSubscribeToEvents from "../hooks/useSubscribeToEvents.js";
+import useSubscribetoEvents from "@/hooks/useSubscribetoEvents.js";
 import { useToast } from '@/hooks/useToast';
 import { v4 as uuidv4 } from 'uuid';
 import 'primeicons/primeicons.css';
@@ -23,7 +23,7 @@ export default function Home() {
   const [generatedLinks, setGeneratedLinks] = useState([]);
   const [secret, setSecret] = useState('');
 
-  const { subscribeToEvents, fetchedEvents } = useSubscribeToEvents();
+  const { subscribeToEvents, fetchedEvents } = useSubscribetoEvents();
   const { showToast } = useToast();
 
   useEffect(() => {
