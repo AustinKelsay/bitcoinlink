@@ -4,7 +4,7 @@ import { Button } from "primereact/button";
 import { TabView, TabPanel } from 'primereact/tabview';
 import { useToast } from "@/hooks/useToast";
 
-const LinkModal = ({ generatedLinks, dialogVisible, setDialogVisible, secret }) => {
+const LinkModal = ({ generatedLinks, linkModalVisible, setLinkModalVisible, secret }) => {
   const [nwcId, setNwcId] = useState('');
   const { showToast } = useToast();
 
@@ -38,8 +38,8 @@ const LinkModal = ({ generatedLinks, dialogVisible, setDialogVisible, secret }) 
   return (
     <Dialog
       header="Generated Links"
-      visible={dialogVisible}
-      onHide={() => setDialogVisible(false)}
+      visible={linkModalVisible}
+      onHide={() => setLinkModalVisible(false)}
       className="sm:w-[80vw] md:w-[70vw] lg:w-[60vw] xl:w-[50vw]"
     >
       <TabView>

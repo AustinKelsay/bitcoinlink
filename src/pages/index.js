@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { InputNumber } from 'primereact/inputnumber';
 import { nwc } from '@getalby/sdk';
-import { nip04 } from 'nostr-tools';
+import { nip04, generatePrivateKey, getPublicKey } from 'nostr-tools';
 import AlbyButton from '@/components/AlbyButton';
 import MutinyButton from '@/components/MutinyButton';
+import MutinyModal from '@/components/MutinyModal';
 import axios from 'axios';
 import crypto from 'crypto';
 import useSubscribetoEvents from "@/hooks/useSubscribetoEvents.js";
@@ -12,64 +13,16 @@ import { v4 as uuidv4 } from 'uuid';
 import 'primeicons/primeicons.css';
 import LinkModal from '@/components/LinkModal';
 
-const appPublicKey = "f2cee06b62c2e57192bf3a344618695da2ad3bf590645b6764959840b62f7bfc";
-const appPrivKey = "2ed6c9e8b1840b584af2ee06afcf8527307f7b687301812ec438ccfbd0fbe7f6";
-const relayUrl = encodeURIComponent('wss://nostr.mutinywallet.com/');
-
 export default function Home() {
   const [numberOfLinks, setNumberOfLinks] = useState(null);
   const [satsPerLink, setSatsPerLink] = useState(null);
-  const [dialogVisible, setDialogVisible] = useState(false);
+  const [linkModalVisible, setLinkModalVisible] = useState(false);
+  const [mutinyModalVisible, setMutinyModalVisible] = useState(false);
   const [generatedLinks, setGeneratedLinks] = useState([]);
   const [secret, setSecret] = useState('');
 
   const { subscribeToEvents, fetchedEvents } = useSubscribetoEvents();
   const { showToast } = useToast();
-
-  useEffect(() => {
-    fetchedEvents.forEach(async (event) => {
-      if (event.tags[0][1] === appPublicKey) {
-        try {
-          const decrypted = await nip04.decrypt(appPrivKey, event.pubkey, event.content);
-          const decryptedSecret = JSON.parse(decrypted).secret;
-          if (decryptedSecret === secret) {
-            const nwcUri = `nostr+walletconnect://${event.pubkey}?relay=${relayUrl}&pubkey=${appPublicKey}&secret=${appPrivKey}`;
-
-            if (nwcUri) {
-              const { encryptedUrl, secret } = encryptNWCUrl(nwcUri);
-
-              const oneYearFromNow = new Date();
-              oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
-
-              axios.post('/api/nwc', {
-                url: encryptedUrl,
-                maxAmount: numberOfLinks * satsPerLink,
-                numLinks: numberOfLinks,
-                expiresAt: oneYearFromNow,
-              })
-                .then(async (response) => {
-                  if (response.status === 201 && response.data?.id) {
-                    console.log('NWC created', response.data);
-                    showToast('success', 'NWC Created', 'The NWC has been successfully created.');
-
-                    const generatedLinks = await generateLinks(response.data.id, secret);
-                    setGeneratedLinks(generatedLinks);
-                    setDialogVisible(true);
-                  }
-                })
-                .catch((error) => {
-                  console.error('Error creating NWC', error);
-                  showToast('error', 'Error Creating NWC', 'An error occurred while creating the NWC. Please try again.');
-                });
-            }
-          }
-        } catch (error) {
-          console.error('Error decrypting event', error);
-          showToast('error', 'Error Decrypting Event', 'An error occurred while decrypting the event. Please try again.');
-        }
-      }
-    });
-  }, [fetchedEvents, secret]);
 
   const encryptNWCUrl = (url) => {
     const secret = crypto.randomBytes(32).toString('hex');
@@ -78,23 +31,6 @@ export default function Home() {
     let encryptedUrl = cipher.update(url, 'utf8', 'hex');
     encryptedUrl += cipher.final('hex');
     return { encryptedUrl, secret };
-  };
-
-  const handleMutinySubmit = async () => {
-    const newSecret = crypto.randomBytes(16).toString('hex');
-    setSecret(newSecret);
-    const requiredCommands = 'pay_invoice';
-    const budget = `${numberOfLinks * satsPerLink}/year`;
-    const identity = "8172b9205247ddfe99b783320782d0312fa305a199fb2be8a3e6563e20b4f0e2";
-
-    const nwaUri = `nostr+walletauth://${appPublicKey}?relay=${relayUrl}&secret=${newSecret}&required_commands=${requiredCommands}&budget=${budget}&identity=${identity}`;
-    const encodedNwaUri = encodeURIComponent(nwaUri);
-    const mutinySettingsUrl = `https://app.mutinywallet.com/settings/connections?nwa=${encodedNwaUri}`;
-
-    window.open(mutinySettingsUrl, 'mutinyWindow', 'width=600,height=700');
-    showToast('info', 'Mutiny Wallet', 'Mutiny Wallet connection window opened.');
-
-    subscribeToEvents([{ kinds: [33194], since: Math.round(Date.now() / 1000) }]);
   };
 
   const handleAlbySubmit = async () => {
@@ -133,7 +69,7 @@ export default function Home() {
 
               const generatedLinks = await generateLinks(response.data.id, secret);
               setGeneratedLinks(generatedLinks);
-              setDialogVisible(true);
+              setLinkModalVisible(true);
             }
           })
           .catch((error) => {
@@ -184,11 +120,25 @@ export default function Home() {
         </div>
         <div className='flex flex-col justify-between h-[12vh] my-8'>
           <AlbyButton handleSubmit={handleAlbySubmit} />
-          <MutinyButton handleSubmit={handleMutinySubmit} disabled={true} />
+          <MutinyButton handleSubmit={() => setMutinyModalVisible(true)} disabled={true} />
         </div>
       </div>
-      {secret && generatedLinks && generatedLinks.length > 0 && dialogVisible && (
-          <LinkModal generatedLinks={generatedLinks} dialogVisible={dialogVisible} setDialogVisible={setDialogVisible} secret={secret} />
+      {secret && generatedLinks && generatedLinks.length > 0 && linkModalVisible && (
+        <LinkModal generatedLinks={generatedLinks} linkModalVisible={linkModalVisible} setLinkModalVisible={setLinkModalVisible} secret={secret} />
+      )
+      }
+      {
+        satsPerLink && numberOfLinks && mutinyModalVisible && (
+          <MutinyModal 
+            mutinyModalVisible={mutinyModalVisible} 
+            setMutinyModalVisible={setMutinyModalVisible} 
+            setLinkModalVisible={setLinkModalVisible} 
+            setGeneratedLinks={setGeneratedLinks} 
+            generateLinks={generateLinks} 
+            encryptNWCUrl={encryptNWCUrl} 
+            numberOfLinks={numberOfLinks} 
+            satsPerLink={satsPerLink} 
+          />
         )
       }
     </main>
