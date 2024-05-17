@@ -64,7 +64,6 @@ export default function Home() {
         })
           .then(async (response) => {
             if (response.status === 201 && response.data?.id) {
-              console.log('NWC created', response.data);
               showToast('success', 'NWC Created', 'The NWC has been successfully created.');
 
               const generatedLinks = await generateLinks(response.data.id, secret);
@@ -120,24 +119,29 @@ export default function Home() {
         </div>
         <div className='flex flex-col justify-between h-[12vh] my-8'>
           <AlbyButton handleSubmit={handleAlbySubmit} />
-          <MutinyButton handleSubmit={() => setMutinyModalVisible(true)} disabled={true} />
+          <MutinyButton handleSubmit={() => setMutinyModalVisible(true)} />
         </div>
       </div>
-      {secret && generatedLinks && generatedLinks.length > 0 && linkModalVisible && (
-        <LinkModal generatedLinks={generatedLinks} linkModalVisible={linkModalVisible} setLinkModalVisible={setLinkModalVisible} secret={secret} />
+      {generatedLinks && generatedLinks.length > 0 && linkModalVisible && (
+        <LinkModal
+          generatedLinks={generatedLinks}
+          linkModalVisible={linkModalVisible}
+          setLinkModalVisible={setLinkModalVisible}
+          secret={secret}
+        />
       )
       }
       {
         satsPerLink && numberOfLinks && mutinyModalVisible && (
-          <MutinyModal 
-            mutinyModalVisible={mutinyModalVisible} 
-            setMutinyModalVisible={setMutinyModalVisible} 
-            setLinkModalVisible={setLinkModalVisible} 
-            setGeneratedLinks={setGeneratedLinks} 
-            generateLinks={generateLinks} 
-            encryptNWCUrl={encryptNWCUrl} 
-            numberOfLinks={numberOfLinks} 
-            satsPerLink={satsPerLink} 
+          <MutinyModal
+            mutinyModalVisible={mutinyModalVisible}
+            setMutinyModalVisible={setMutinyModalVisible}
+            setLinkModalVisible={setLinkModalVisible} // Pass the setLinkModalVisible function
+            setGeneratedLinks={setGeneratedLinks} // Pass the setGeneratedLinks function
+            generateLinks={generateLinks}
+            encryptNWCUrl={encryptNWCUrl}
+            numberOfLinks={numberOfLinks}
+            satsPerLink={satsPerLink}
           />
         )
       }
