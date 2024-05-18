@@ -18,7 +18,7 @@ export default async function handler(req, res) {
                 return res.status(404).json({ error: 'Link not found' });
             }
 
-            const newLink = `https://bitcoinlink.app/claim/${linkMetaData.nwcId}?secret=${token}&linkIndex=${linkMetaData.linkIndex}`;
+            const newLink = `https://www.bitcoinlink.app/claim/${linkMetaData.nwcId}?secret=${token}&linkIndex=${linkMetaData.linkIndex}`;
 
             // Mark the link as served
             await markLinkServed(linkMetaData.id);

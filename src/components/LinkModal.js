@@ -53,7 +53,7 @@ const LinkModal = ({ generatedLinks, linkModalVisible, setLinkModalVisible, secr
                       {link}
                     </a>
                   </div>
-                  <Button className="flex self-end" icon="pi pi-copy" severity="success" aria-label="copy" onClick={() => copyToClipboard(link)} />
+                  <Button className="flex self-end" icon="pi pi-copy" severity="success" aria-label="copy" onClick={() => copyToClipboard(`https://www.${link}`)} />
                 </div>
               ))}
             </div>
@@ -69,7 +69,7 @@ const LinkModal = ({ generatedLinks, linkModalVisible, setLinkModalVisible, secr
               <p className="text-lg font-bold mb-2">API Endpoint:</p>
               <div className="overflow-x-auto mb-4">
                 <pre className="bg-gray-900 text-white p-2 rounded-md">
-                  <code className="bg-gray-900 text-white p-2 rounded-md">GET https://bitcoinlink.app/api/link/{nwcId}</code>
+                  <code className="bg-gray-900 text-white p-2 rounded-md">GET https://www.bitcoinlink.app/api/link/{nwcId}</code>
                 </pre>
               </div>
               <p className="text-lg font-bold mb-2">Secret:</p>
