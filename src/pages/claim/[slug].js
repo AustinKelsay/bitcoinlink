@@ -13,10 +13,11 @@ import AlbyButton from "@/components/AlbyButton";
 import MutinyButton from "@/components/MutinyButton";
 import CashAppButton from "@/components/CashAppButton";
 import "primeicons/primeicons.css";
+import { ClaimInstructionsModal } from "@/components/ClaimInstructionsModal";
 
 export default function ClaimPage() {
   const router = useRouter();
-  const dialogRef = useRef(null);
+  const [isVisible, setIsVisible] = useState(false);
   const { slug, linkIndex, secret } = router.query;
   const [nwc, setNwc] = useState(null);
   const [lightningAddress, setLightningAddress] = useState("");
@@ -342,77 +343,12 @@ export default function ClaimPage() {
 
   return (
     <main className="flex flex-col items-center justify-evenly p-8 sm:w-[80vw] md:w-[70vw] lg:w-[60vw] xl:w-[50vw] mx-auto">
-      <dialog
-        ref={dialogRef}
-        className={
-          "absolute inset-0 h-96 w-full max-w-96 md:max-w-lg bg-gray-900 px-4 pt-8 relative text-md rounded-lg"
-        }
-      >
-        <i
-          className="pi pi-times-circle absolute top-2 right-2 cursor-pointer"
-          onClick={() => {
-            dialogRef.current.close();
-          }}
-        ></i>
-        <div
-          className={"overflow-y-scroll w-full h-full"}
-          style={{ scrollbarWidth: "none" }}
-        >
-          <p>Claim Rewards Using A Lightning Address:</p>
-          <ul className="list-decimal flex flex-col gap-y-2">
-            <li>
-              You will need to obtain a LN Address. You can obtain a LN Address
-              by using any of the following services:
-              <ul>
-                <li>
-                  <a href={"https://stacker.news/"}>Stacker News</a>
-                </li>
-                <li>
-                  <a href={"https://strike.me"}>Strike</a>
-                </li>
-                <li>
-                  <a href={"https://primal.net/"}>Primal</a>
-                </li>
-                <li>
-                  <a href={"https://getalby.com/"}>Alby</a>
-                </li>
-                <li>
-                  <a href={"https://zbd.gg/"}>ZBD</a>
-                </li>
-              </ul>
-            </li>
-            <li>
-              After creating an account using one of the services in the
-              previous step, you will need to locate your LN Address. This
-              should have been automatically created for you. Ex:
-              (yourUsername@stacker.news, yourUsername@strike.me)
-            </li>
-            <li>
-              Copy and paste your LN Address into the input box and press the
-              claim button after verifying that you have entered your LN Address
-              correctly.
-            </li>
-          </ul>
-          <p>Claim Rewards Using A Bolt11 Invoice:</p>
-          <ul className="list-decimal flex flex-col gap-y-2">
-            <li>
-              Open your preferred lightning wallet. (any of the services in the
-              instructions for claiming rewards using a Lightning Address will
-              also work)
-            </li>
-            <li>
-              Using a lightning wallet, you can create an amountless invoice or
-              set the amount equal to that of the amount of your claimable
-              reward.
-            </li>
-            <li>
-              Copy and paste your Bolt11 Invoice into the input box and press
-              the claim button after verifying that you have entered your Bolt11
-              Invoice correctly.
-            </li>
-          </ul>
-        </div>
-      </dialog>
+      <ClaimInstructionsModal
+        isVisible={isVisible}
+        onHide={() => {
+          setIsVisible(false);
+        }}
+      />
       {!exists ? (
         <h1 className="text-6xl">Link not found</h1>
       ) : (
@@ -439,7 +375,7 @@ export default function ClaimPage() {
                   <i
                     className="ml-2 pi pi-info-circle text-white cursor-pointer"
                     onClick={() => {
-                      dialogRef.current.showModal();
+                      setIsVisible(true);
                     }}
                   ></i>
                 </label>
