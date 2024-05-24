@@ -12,7 +12,7 @@ Made possible by Nostr Wallet Connect [(NWC)](https://nwc.dev)
 
 ## features:
 - Generate NWC with Alby
-- Generate NWC with Mutiny via (NWA)[https://github.com/nostr-protocol/nips/pull/851]
+- Generate NWC with Mutiny via [NWA](https://github.com/nostr-protocol/nips/pull/851)
 - Create multiple links from one NWC
 - Claim links 1 at a time non-custodially through api endpoint at `GET https://www.bitcoinlink.app/api/link/{nwcID}` providing the secret as your 'authorization' header
 - Redeem links with bolt11, lud16 lightning address, or lud06 LNURL
