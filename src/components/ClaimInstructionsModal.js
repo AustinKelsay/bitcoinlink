@@ -85,9 +85,8 @@ export function ClaimInstructionsModal({ isVisible, onHide }) {
             After creating an account using one of the services in the previous
             step, you will need to locate your Lightning Address. This should
             have been automatically created for you. It will look similar to an
-            email address and it will generally be structed as your username
-            followed by the @ symbol, and the app name. Ex: (username@strike.me,
-            username@stacker.news)
+            email address and it will generally be structured as your username
+            followed by the @ symbol, and the app name. <i>ex: username@strike.me</i>
           </li>
           <div
             className={
