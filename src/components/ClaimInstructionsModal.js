@@ -5,36 +5,49 @@ import strike0 from "../../public/strike0.PNG";
 import strike1 from "../../public/strike1.PNG";
 import strike2 from "../../public/strike2.PNG";
 import strike3 from "../../public/strike3.PNG";
+import alby0 from "../../public/alby0.png";
+import alby1 from "../../public/alby1.png";
+import alby2 from "../../public/alby2.png";
+import alby3 from "../../public/alby3.png";
+import alby4 from "../../public/alby4.png";
+import mutiny from "../../public/mutinypro.png";
+import strike from "../../public/strike.png";
+import stackernews from "../../public/stackernews.png";
+import primal from "../../public/primal.png";
+import alby from "../../public/alby.png";
+import zbd from "../../public/zbd.png";
+
+
 
 const LN_ADDRESS_PROVIDERS = [
   {
     name: "Strike",
-    logo: "https://logowik.com/content/uploads/images/strike8819.logowik.com.webp",
+    logo: strike,
     link: "https://strike.me",
   },
   {
     name: "Stacker News",
-    logo: "https://www.nobsbitcoin.com/content/images/2023/05/stackernews-logo.png",
+    logo: stackernews,
     link: "https://stacker.news/",
   },
   {
     name: "Primal",
-    logo: "https://www.techcompanynews.com/wp-content/uploads/2023/07/Primal-power.png",
+    logo: primal,
     link: "https://primal.net/",
   },
   {
     name: "Alby",
-    logo: "https://blog.getalby.com/content/images/2022/05/aa-6.jpg",
+    logo: alby,
     link: "https://getalby.com/",
   },
   {
     name: "ZBD",
-    logo: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_wSvnll3qn0xY8YOpvBUeqCDWNkS8xZIdLFDM-EYHQDogxlNLhhxAWw8PEUoIpirXnGI&usqp=CAU",
+    logo: zbd,
     link: "https://zbd.gg/",
   },
   {
     name: "Mutiny Pro",
-    logo: "https://www.nobsbitcoin.com/content/images/2023/07/mutiny-wallet3.png",
+    logo: mutiny,
     link: "https://www.mutinywallet.com/",
   },
 ];
@@ -69,7 +82,7 @@ export function ClaimInstructionsModal({ isVisible, onHide }) {
                     "w-full md:w-96 h-64 bg-black flex flex-col items-center p-2 no-underline"
                   }
                 >
-                  <img
+                  <Image
                     src={provider.logo}
                     alt={provider.name}
                     className={"w-full h-4/5 object-contain"}
@@ -86,7 +99,8 @@ export function ClaimInstructionsModal({ isVisible, onHide }) {
             step, you will need to locate your Lightning Address. This should
             have been automatically created for you. It will look similar to an
             email address and it will generally be structured as your username
-            followed by the @ symbol, and the app name. <i>ex: username@strike.me</i>
+            followed by the @ symbol, and the app name.{" "}
+            <i>ex: username@strike.me</i>
           </li>
           <div
             className={
@@ -95,14 +109,17 @@ export function ClaimInstructionsModal({ isVisible, onHide }) {
           >
             <Image
               src={strike0}
+              alt={"strike0"}
               className={"h-[600px] w-auto object-contain"}
             />
             <Image
               src={strike1}
+              alt={"strike1"}
               className={"h-[600px] w-auto object-contain"}
             />
             <Image
               src={strike2}
+              alt={"strike2"}
               className={"h-[600px] w-auto object-contain"}
             />
           </div>
@@ -118,6 +135,7 @@ export function ClaimInstructionsModal({ isVisible, onHide }) {
           >
             <Image
               src={strike3}
+              alt={"strike3"}
               className={"h-[600px] w-auto object-contain"}
             />
           </div>
@@ -130,14 +148,51 @@ export function ClaimInstructionsModal({ isVisible, onHide }) {
             also work)
           </li>
           <li>
-            Using a lightning wallet, you can create an amountless invoice or
-            set the amount equal to that of the amount of your claimable reward.
+            Using a lightning wallet, create an invoice and set the amount equal
+            to that of the amount of your claimable reward.
           </li>
+          <div
+            className={
+              "w-full flex flex-col md:flex-row gap-2 overflow-auto my-4"
+            }
+          >
+            <Image
+              src={alby0}
+              alt={"alby0"}
+              className={"h-[600px] w-auto object-contain"}
+            />
+            <Image
+              src={alby1}
+              alt={"alby1"}
+              className={"h-[600px] w-auto object-contain"}
+            />
+            <Image
+              src={alby2}
+              alt={"alby2"}
+              className={"h-[600px] w-auto object-contain"}
+            />
+          </div>
           <li>
             Copy and paste your Bolt11 Invoice into the input box and press the
             claim button after verifying that you have entered your Bolt11
             Invoice correctly.
           </li>
+          <div
+            className={
+              "w-full flex flex-col md:flex-row gap-2 overflow-auto my-4"
+            }
+          >
+            <Image
+              src={alby3}
+              alt={"alby3"}
+              className={"h-[600px] w-auto object-contain"}
+            />
+            <Image
+              src={alby4}
+              alt={"alby4"}
+              className={"h-[600px] w-auto object-contain"}
+            />
+          </div>
         </ul>
       </div>
     </Dialog>
