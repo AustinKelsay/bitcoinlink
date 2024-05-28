@@ -16,6 +16,7 @@ import stackernews from "../../public/stackernews.png";
 import primal from "../../public/primal.png";
 import alby from "../../public/alby.png";
 import zbd from "../../public/zbd.png";
+import { ImagePreview } from "./ImagePreview";
 
 
 
@@ -107,20 +108,23 @@ export function ClaimInstructionsModal({ isVisible, onHide }) {
               "w-full flex flex-col md:flex-row gap-2 overflow-auto my-4"
             }
           >
-            <Image
+            <ImagePreview
               src={strike0}
               alt={"strike0"}
               className={"h-[600px] w-auto object-contain"}
+              preview={true}
             />
-            <Image
+            <ImagePreview
               src={strike1}
               alt={"strike1"}
               className={"h-[600px] w-auto object-contain"}
+              preview={true}
             />
-            <Image
+            <ImagePreview
               src={strike2}
               alt={"strike2"}
               className={"h-[600px] w-auto object-contain"}
+              preview={true}
             />
           </div>
           <li>
@@ -133,10 +137,11 @@ export function ClaimInstructionsModal({ isVisible, onHide }) {
               "w-full flex flex-col md:flex-row gap-2 overflow-auto my-4"
             }
           >
-            <Image
+            <ImagePreview
               src={strike3}
               alt={"strike3"}
               className={"h-[600px] w-auto object-contain"}
+              preview={true}
             />
           </div>
         </ul>
@@ -156,20 +161,23 @@ export function ClaimInstructionsModal({ isVisible, onHide }) {
               "w-full flex flex-col md:flex-row gap-2 overflow-auto my-4"
             }
           >
-            <Image
+            <ImagePreview
               src={alby0}
               alt={"alby0"}
               className={"h-[600px] w-auto object-contain"}
+              preview={true}
             />
-            <Image
+            <ImagePreview
               src={alby1}
               alt={"alby1"}
               className={"h-[600px] w-auto object-contain"}
+              preview={true}
             />
-            <Image
+            <ImagePreview
               src={alby2}
               alt={"alby2"}
               className={"h-[600px] w-auto object-contain"}
+              preview={true}
             />
           </div>
           <li>
@@ -182,15 +190,17 @@ export function ClaimInstructionsModal({ isVisible, onHide }) {
               "w-full flex flex-col md:flex-row gap-2 overflow-auto my-4"
             }
           >
-            <Image
+            <ImagePreview
               src={alby3}
               alt={"alby3"}
               className={"h-[600px] w-auto object-contain"}
+              preview={true}
             />
-            <Image
+            <ImagePreview
               src={alby4}
               alt={"alby4"}
               className={"h-[600px] w-auto object-contain"}
+              preview={true}
             />
           </div>
         </ul>
