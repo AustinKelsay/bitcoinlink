@@ -73,7 +73,7 @@ export function ClaimInstructionsModal({ isVisible, onHide }) {
       modal
       onHide={onHide}
       maximizable
-      style={{ scrollbarWidth: "none" }}
+      style={{ scrollbarWidth: "none", width: "100vw" }}
     >
       <div className={"rounded-lg flex flex-col h-full"}>
         <div className={"hidden sm:block"}>
@@ -83,16 +83,16 @@ export function ClaimInstructionsModal({ isVisible, onHide }) {
           <Stepper ref={stepperRef} style={{ flexBasis: "50rem" }}>
             <StepperPanel header="Get a Lightning Wallet">
               <div className="flex flex-col">
-                <li>
+                <li className={"text-xl"}>
                   You will need to obtain a Lightning Address. You can obtain a
                   Lightning Address by using any of the following services:
-                  <div className={"flex flex-row gap-1 flex-wrap my-4"}>
+                  <div className={"flex flex-row gap-8 flex-wrap my-4"}>
                     {LN_ADDRESS_PROVIDERS.map((provider, _) => (
                       <Link
                         key={_}
                         href={provider.link}
                         className={
-                          "w-[48%] md:w-64 h-48 bg-black flex flex-col items-center p-2 no-underline"
+                          "w-64 h-48 flex flex-col items-center p-2 no-underline border-solid border-2 border-gray-200 rounded-lg bg-black"
                         }
                       >
                         <Image
@@ -119,13 +119,13 @@ export function ClaimInstructionsModal({ isVisible, onHide }) {
             </StepperPanel>
             <StepperPanel header="Find your Lightning Address">
               <div className="flex flex-col">
-                <li>
+                <li className={"text-xl"}>
                   After creating an account using one of the services in the
                   previous step, you will need to locate your Lightning Address.
                   This should have been automatically created for you. It will
                   look similar to an email address and it will generally be
                   structured as your username followed by the @ symbol, and the
-                  app name. <i>ex: username@strike.me</i>
+                  app name. <i>(example below: Strike IOS app)</i>
                 </li>
                 <div
                   className={
@@ -169,7 +169,7 @@ export function ClaimInstructionsModal({ isVisible, onHide }) {
             </StepperPanel>
             <StepperPanel header="Claim your Reward">
               <div className="flex flex-col">
-                <li>
+                <li className={"text-xl"}>
                   Copy and paste your Lightning Address into the input box and
                   press the claim button after verifying that you have entered
                   your Lightning Address correctly.
@@ -203,17 +203,17 @@ export function ClaimInstructionsModal({ isVisible, onHide }) {
           <Stepper ref={stepperRef2} style={{ flexBasis: "50rem" }}>
             <StepperPanel header="Get a Lightning Wallet">
               <div className="flex flex-col">
-                <li>
+                <li className={"text-xl"}>
                   You will need to use a lightning wallet. You can download or
                   use a lightning wallet in your browser by using any of the
                   following services:
-                  <div className={"flex flex-row gap-1 flex-wrap my-4"}>
+                  <div className={"flex flex-row gap-8 flex-wrap my-4"}>
                     {LN_ADDRESS_PROVIDERS.map((provider, _) => (
                       <Link
                         key={_}
                         href={provider.link}
                         className={
-                          "w-[48%] md:w-64 h-48 bg-black flex flex-col items-center p-2 no-underline"
+                          "w-64 h-48 flex flex-col items-center p-2 no-underline border-solid border-2 border-gray-200 rounded-lg bg-black"
                         }
                       >
                         <Image
@@ -240,9 +240,10 @@ export function ClaimInstructionsModal({ isVisible, onHide }) {
             </StepperPanel>
             <StepperPanel header="Create a Bolt11 Invoice">
               <div className="flex flex-col">
-                <li>
+                <li className={"text-xl"}>
                   Using a lightning wallet, create an invoice and set the amount
-                  equal to that of the amount of your claimable reward.
+                  equal to that of the amount of your claimable reward.{" "}
+                  <i>(example below: Alby browser extension)</i>
                 </li>
                 <div
                   className={
@@ -286,7 +287,7 @@ export function ClaimInstructionsModal({ isVisible, onHide }) {
             </StepperPanel>
             <StepperPanel header="Claim your Reward">
               <div className="flex flex-col">
-                <li>
+                <li className={"text-xl"}>
                   Copy and paste your Bolt11 Invoice into the input box and
                   press the claim button after verifying that you have entered
                   your Bolt11 Invoice correctly.
