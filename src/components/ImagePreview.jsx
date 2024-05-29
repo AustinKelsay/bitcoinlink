@@ -8,7 +8,7 @@ export function ImagePreview({ src, preview, className, alt }) {
     return (
       <div
         className={
-          fullscreen ? "absolute inset-0 bg-black grid place-items-center" : ""
+          fullscreen ? "absolute inset-0 bg-black grid place-items-center z-10" : ""
         }
         onClick={() => {
           setFullscreen(!fullscreen);
@@ -20,7 +20,7 @@ export function ImagePreview({ src, preview, className, alt }) {
         <Image
           src={src}
           alt={alt}
-          className={fullscreen ? "h-[80vh] w-auto" : className}
+          className={fullscreen ? "w-full h-auto md:h-[80vh] md:w-auto" : className}
         />
       </div>
     );
