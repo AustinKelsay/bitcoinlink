@@ -5,6 +5,7 @@ import crypto from "crypto";
 import { getBolt11Descirption, validateBolt11 } from "@/utils/bolt11";
 import { InputText } from "primereact/inputtext";
 import { Button } from "primereact/button";
+import { Tooltip } from "primereact/tooltip";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { webln } from "@getalby/sdk";
 import { useToast } from "@/hooks/useToast";
@@ -369,14 +370,19 @@ export default function ClaimPage() {
                             className="flex flex-col items-center"
                         >
                             <div className="flex flex-col items-center my-8">
-                                <label className="mb-2 text-2xl" htmlFor="lightning-address">
+                                <label className="mb-2 text-3xl" htmlFor="lightning-address">
                                     Enter any Lightning Address , Bolt11 Invoice, or LNURL
                                     <i
-                                        className="ml-2 pi pi-info-circle text-white cursor-pointer"
+                                        className="info-button ml-2 pi pi-question-circle text-white cursor-pointer text-xl"
+                                        data-pr-tooltip="How to claim?"
+                                        data-pr-position="right"
+                                        data-pr-my="left center-2"
                                         onClick={() => {
                                             setIsVisible(true);
                                         }}
-                                    ></i>
+                                    >
+                                        <Tooltip target=".info-button" />
+                                    </i>
                                 </label>
                                 <InputText
                                     className="w-full"
