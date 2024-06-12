@@ -56,7 +56,8 @@ const handlePostRequest = async (req, res) => {
             const link = await getLinkByNwcIdAndIndex(nwc.id, linkIndex);
             const deletedLink = await deleteLink(link.id);
 
-            if (deletedLink && Object.keys(deletedLink).length > 0) {
+            // Add special condition for backfilled nwc
+            if (deletedLink && Object.keys(deletedLink).length > 0 && nwc.id !== "clwf9yz6n00001jgso4nmruxe") {
                 const deleted = await deleteNwc(slug);
 
                 if (deleted && Object.keys(deleted).length > 0) {
@@ -64,7 +65,12 @@ const handlePostRequest = async (req, res) => {
                 } else {
                     return res.status(500).json({ error: 'Error deleting NWC' });
                 }
-            } else {
+            }
+            // Add special condition for backfilled nwc
+            else if (deletedLink && Object.keys(deletedLink).length > 0 && nwc.id === "clwf9yz6n00001jgso4nmruxe") {
+                return res.status(200).json({ message: 'Payment successful', response });
+            }
+            else {
                 return res.status(500).json({ error: 'Error deleting link' });
             }
         }
