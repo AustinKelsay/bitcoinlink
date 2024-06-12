@@ -49,6 +49,7 @@ const handlePostRequest = async (req, res) => {
 
         const response = await nwcProvider.sendPayment(invoice);
 
+        nwcProvider.close(); // close the websocket connection
         if (!response) {
             return res.status(500).json({ error: 'Error paying invoice' });
         } else if (response.preimage && response.preimage.length > 0) {

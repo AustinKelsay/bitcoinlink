@@ -1,4 +1,4 @@
-import { createNwc, getAllNwcs } from "@/models/nwcModels";
+import { createNwc } from "@/models/nwcModels";
 
 export default async function handler(req, res) {
     if (req.method === 'POST') {
