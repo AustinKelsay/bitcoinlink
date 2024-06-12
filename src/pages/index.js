@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { InputNumber } from 'primereact/inputnumber';
 import { nwc } from '@getalby/sdk';
-import { nip04, generatePrivateKey, getPublicKey } from 'nostr-tools';
+import { ProgressSpinner } from 'primereact/progressspinner';
 import AlbyButton from '@/components/AlbyButton';
 import MutinyButton from '@/components/MutinyButton';
 import MutinyModal from '@/components/MutinyModal';
@@ -19,6 +19,9 @@ export default function Home() {
   const [linkModalVisible, setLinkModalVisible] = useState(false);
   const [mutinyModalVisible, setMutinyModalVisible] = useState(false);
   const [generatedLinks, setGeneratedLinks] = useState([]);
+  const [oneToManyNwcId, setOneToManyNwcId] = useState('');
+  const [oneToManySecret, setOneToManySecret] = useState('');
+  const [generatingLinks, setGeneratingLinks] = useState(false);
   const [secret, setSecret] = useState('');
 
   const { subscribeToEvents, fetchedEvents } = useSubscribetoEvents();
@@ -35,8 +38,8 @@ export default function Home() {
 
   const handleAlbySubmit = async () => {
     const newNwc = nwc.NWCClient.withNewSecret();
-    const monthFromNow = new Date();
-    monthFromNow.setMonth(monthFromNow.getMonth() + 1);
+    const yearFromNow = new Date();
+    yearFromNow.setFullYear(yearFromNow.getFullYear() + 1);
     const amount = numberOfLinks * satsPerLink;
 
     try {
@@ -46,7 +49,7 @@ export default function Home() {
         maxAmount: amount,
         editable: false,
         budgetRenewal: 'never',
-        expiresAt: monthFromNow,
+        expiresAt: yearFromNow,
       };
       await newNwc.initNWC(initNwcOptions);
       showToast('info', 'Alby', 'Alby connection window opened.');
@@ -54,27 +57,46 @@ export default function Home() {
 
 
       if (newNWCUrl) {
-        const { encryptedUrl, secret } = encryptNWCUrl(newNWCUrl);
+        setGeneratingLinks(true);
+        // first generate the one-to-many NWC with links for the API
+        const { oneToManyNwcId, oneToManySecret } = await generateOneToManyNWC(newNWCUrl);
+        setOneToManyNwcId(oneToManyNwcId);
+        setOneToManySecret(oneToManySecret);
 
-        axios.post('/api/nwc', {
-          url: encryptedUrl,
-          maxAmount: amount,
-          numLinks: numberOfLinks,
-          expiresAt: monthFromNow,
-        })
-          .then(async (response) => {
-            if (response.status === 201 && response.data?.id) {
-              showToast('success', 'NWC Created', 'The NWC has been successfully created.');
+        // Then generate the one-to-one NWC and links for the user
+        const links = [];
+        for (let i = 0; i < numberOfLinks; i++) {
+          const { encryptedUrl, secret } = encryptNWCUrl(newNWCUrl);
 
-              const generatedLinks = await generateLinks(response.data.id, secret);
-              setGeneratedLinks(generatedLinks);
-              setLinkModalVisible(true);
-            }
-          })
-          .catch((error) => {
-            console.error('Error creating NWC', error);
-            showToast('error', 'Error Creating NWC', 'An error occurred while creating the NWC. Please try again.');
+          const createdNwc = await axios.post('/api/nwc', {
+            url: encryptedUrl,
+            maxAmount: amount / numberOfLinks,
+            numLinks: 1,
+            expiresAt: yearFromNow,
           });
+
+          if (createdNwc.status === 201 && createdNwc.data?.id) {
+            const linkIndex = uuidv4();
+            const link = `bitcoinlink.app/claim/${createdNwc.data?.id}?secret=${secret}&linkIndex=${linkIndex}`;
+            links.push(link);
+            const createdLink = await axios.post('/api/links', {
+              nwcId: createdNwc.data.id,
+              linkIndex: linkIndex,
+            });
+
+            if (createdLink.status === 201) {
+              continue;
+            } else {
+              showToast('error', 'Error Creating Link', 'An error occurred while creating a link. Please try again.');
+            }
+          } else {
+            showToast('error', 'Error Creating NWC', 'An error occurred while creating the NWC. Please try again.');
+          }
+        }
+        setGeneratedLinks(links);
+        setGeneratingLinks(false);
+        setLinkModalVisible(true);
+        showToast('success', 'Links Created', 'The links have been created successfully.');
       } else {
         throw new Error('No NWC url returned');
       }
@@ -83,6 +105,25 @@ export default function Home() {
       showToast('warn', 'Prompt Closed', 'The prompt was closed without completing the action.');
     }
   };
+
+  const generateOneToManyNWC = async (newNWCUrl) => {
+    const { encryptedUrl, secret } = encryptNWCUrl(newNWCUrl);
+
+    const yearFromNow = new Date();
+    yearFromNow.setFullYear(yearFromNow.getFullYear() + 1);
+    const amount = numberOfLinks * satsPerLink;
+
+    const createdNwc = await axios.post('/api/nwc', {
+      url: encryptedUrl,
+      maxAmount: amount,
+      numLinks: numberOfLinks,
+      expiresAt: yearFromNow,
+    });
+
+    if (createdNwc.status === 201 && createdNwc.data?.id) {
+      return { oneToManyNwcId: createdNwc.data.id, oneToManySecret: secret };
+    }
+  }
 
   const generateLinks = async (nwcId, secret) => {
     const links = [];
@@ -108,26 +149,41 @@ export default function Home() {
   return (
     <main className={'flex flex-col items-center justify-evenly p-8'}>
       <h1 className="text-6xl">BitcoinLink</h1>
-      <div className='flex flex-col items-center'>
-        <div className='flex flex-col items-center my-8'>
-          <label className='mb-2 text-2xl' htmlFor='number'>Number of links</label>
-          <InputNumber id='number' value={numberOfLinks} onValueChange={(e) => setNumberOfLinks(e.value)} />
-        </div>
-        <div className='flex flex-col items-center my-8'>
-          <label className='mb-2 text-2xl' htmlFor='sats'>Sats per link</label>
-          <InputNumber id='sats' value={satsPerLink} onValueChange={(e) => setSatsPerLink(e.value)} />
-        </div>
-        <div className='flex flex-col justify-between h-[12vh] my-8'>
-          <AlbyButton handleSubmit={handleAlbySubmit} />
-          <MutinyButton handleSubmit={() => setMutinyModalVisible(true)} />
-        </div>
-      </div>
-      {generatedLinks && generatedLinks.length > 0 && linkModalVisible && (
+      {generatingLinks ? (
+        <>
+          <p>Generating links...</p>
+          <ProgressSpinner
+            style={{ width: "50px", height: "50px" }}
+            strokeWidth="8"
+            animationDuration=".8s"
+          />
+        </>
+      )
+        : (
+
+          <div className='flex flex-col items-center'>
+            <div className='flex flex-col items-center my-8'>
+              <label className='mb-2 text-2xl' htmlFor='number'>Number of links</label>
+              <InputNumber id='number' value={numberOfLinks} onValueChange={(e) => setNumberOfLinks(e.value)} min={0} max={1000} />
+            </div>
+            <div className='flex flex-col items-center my-8'>
+              <label className='mb-2 text-2xl' htmlFor='sats'>Sats per link</label>
+              <InputNumber id='sats' value={satsPerLink} onValueChange={(e) => setSatsPerLink(e.value)} />
+            </div>
+            <div className='flex flex-col justify-between h-[12vh] my-8'>
+              <AlbyButton handleSubmit={handleAlbySubmit} />
+              <MutinyButton disabled={true} handleSubmit={() => setMutinyModalVisible(true)} />
+            </div>
+          </div>
+        )}
+      {generatedLinks && generatedLinks.length > 0 && linkModalVisible && oneToManyNwcId && oneToManySecret && (
         <LinkModal
           generatedLinks={generatedLinks}
           linkModalVisible={linkModalVisible}
           setLinkModalVisible={setLinkModalVisible}
           secret={secret}
+          oneToManyNwcId={oneToManyNwcId}
+          oneToManySecret={oneToManySecret}
         />
       )
       }
