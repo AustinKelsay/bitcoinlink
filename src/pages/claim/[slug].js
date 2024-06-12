@@ -331,7 +331,7 @@ export default function ClaimPage() {
             {!exists ? (
                 <>
                     <h1 className="text-6xl mb-0">Link not found</h1>
-                    <p className='text-2xl mt-0'>( It might have already been claimed )</p>
+                    <p className='text-2xl mt-0'>This means the link has either already been claimed or has expired</p>
                 </>
             ) : (
                 <>
