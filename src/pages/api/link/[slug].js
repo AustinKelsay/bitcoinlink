@@ -22,6 +22,10 @@ export default async function handler(req, res) {
     const { slug } = req.query;
     const token = req.headers.authorization;
 
+    if (slug === "clwf9yz6n00001jgso4nmruxe") {
+        return res.status(404).json({ error: 'NWC not found' });
+    }
+
     if (req.method === 'GET') {
         try {
             if (!token) {
