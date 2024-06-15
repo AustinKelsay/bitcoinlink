@@ -16,6 +16,67 @@ const decryptNWCUrl = (encryptedUrl, secret) => {
     return decryptedUrl;
 };
 
+const handleNwcReplacementPostRequest = async (req, res) => {
+    const { invoice } = req.body;
+    const { slug, linkIndex } = req.query;
+    const token = req.headers.authorization;
+
+    try {
+        const nwc = await getNwcById(slug);
+
+        if (!nwc) {
+            return res.status(404).json({ error: 'NWC not found' });
+        }
+
+        const amountPerLink = nwc.maxAmount / nwc.numLinks;
+        const bolt11Amount = getBolt11Amount(invoice);
+
+        if (bolt11Amount !== amountPerLink) {
+            return res.status(400).json({ error: 'Invalid invoice amount' });
+        }
+
+        const decryptedUrl = decryptNWCUrl(nwc.url, token);
+
+        if (!decryptedUrl) {
+            return res.status(500).json({ error: 'Error decrypting URL' });
+        }
+
+        const link = await getLinkByNwcIdAndIndex(nwc.id, linkIndex);
+
+        if (!link || !link.id) {
+            return res.status(404).json({ error: 'Link not found' });
+        }
+
+        const isClaimed = link.isClaimed;
+
+            if (isClaimed) {
+                return res.status(400).json({ error: 'Link already claimed' });
+            }
+
+            const nwcProvider = new webln.NostrWebLNProvider({
+                nostrWalletConnectUrl: decryptedUrl
+            });
+    
+            await nwcProvider.enable();
+    
+            const response = await nwcProvider.sendPayment(invoice);
+
+            nwcProvider.close(); // close the websocket connection
+
+            if (response.preimage && response.preimage.length > 0) {
+                const deletedLink = await deleteLink(link.id);
+
+                if (deletedLink && Object.keys(deletedLink).length > 0) {
+                    return res.status(200).json({ message: 'Payment successful', response });
+                } else {
+                    return res.status(500).json({ error: 'Error deleting link' });
+                }
+            }
+        } catch (error) {
+            return res.status(500).json({ error: error.message });
+        }
+}
+
 const handlePostRequest = async (req, res) => {
     const { invoice } = req.body;
     const { slug, linkIndex } = req.query;
@@ -56,8 +117,7 @@ const handlePostRequest = async (req, res) => {
             const link = await getLinkByNwcIdAndIndex(nwc.id, linkIndex);
             const deletedLink = await deleteLink(link.id);
 
-            // Add special condition for backfilled nwc
-            if (deletedLink && Object.keys(deletedLink).length > 0 && nwc.id !== "clwf9yz6n00001jgso4nmruxe") {
+            if (deletedLink && Object.keys(deletedLink).length > 0) {
                 const deleted = await deleteNwc(slug);
 
                 if (deleted && Object.keys(deleted).length > 0) {
@@ -65,12 +125,7 @@ const handlePostRequest = async (req, res) => {
                 } else {
                     return res.status(500).json({ error: 'Error deleting NWC' });
                 }
-            }
-            // Add special condition for backfilled nwc
-            else if (deletedLink && Object.keys(deletedLink).length > 0 && nwc.id === "clwf9yz6n00001jgso4nmruxe") {
-                return res.status(200).json({ message: 'Payment successful', response });
-            }
-            else {
+            } else {
                 return res.status(500).json({ error: 'Error deleting link' });
             }
         }
@@ -108,7 +163,11 @@ export default async function handler(req, res) {
     checkReferer(req, res, async () => {
         switch (req.method) {
             case 'POST':
-                await handlePostRequest(req, res);
+                if (req.query.slug === "clwf9yz6n00001jgso4nmruxe") {
+                    await handleNwcReplacementPostRequest(req, res);
+                } else {
+                    await handlePostRequest(req, res);
+                }
                 break;
             case 'GET':
                 await handleGetRequest(req, res);
