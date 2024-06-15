@@ -7,7 +7,7 @@ Made possible by Nostr Wallet Connect [(NWC)](https://nwc.dev)
 
 ## How it works
 - Sender: generates an NWC with either Alby or Mutiny
-- BitcoinLink: Generate a pseudorandom secret, encrypt the NWC with the secret, store the secret in the link, and store the encrypted NWC in our database. (the secret only ever lives in app state the server never sees it)
+- BitcoinLink: Generate a pseudorandom secret for each link, encrypt the NWC with each secret, store the secret in the link, and store the encrypted NWC's in our database. (the secret only ever lives in app state the server never saves it)
 - Receiver: clicks the link, app detects and decrypts the nwc, sends the bitcoin to the receiver's wallet directly from the sender's wallet over lightning
 
 ## features:
