@@ -20,6 +20,9 @@ const handleNwcReplacementPostRequest = async (req, res) => {
     const { invoice } = req.body;
     const { slug, linkIndex } = req.query;
     const token = req.headers.authorization;
+    console.log('slug', slug);
+    console.log('linkIndex', linkIndex);
+    console.log('invoice', invoice);
 
     try {
         const nwc = await getNwcById(slug);
