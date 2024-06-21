@@ -16,3 +16,10 @@ Made possible by Nostr Wallet Connect [(NWC)](https://nwc.dev)
 - Create multiple links from one NWC
 - Claim links 1 at a time non-custodially through api endpoint at `GET https://www.bitcoinlink.app/api/link/{nwcID}` providing the secret as your 'authorization' header
 - Redeem links with bolt11, lud16 lightning address, or lud06 LNURL
+
+## development
+
+```
+$ cp .env.sample env
+$ docker-compose up
+```
