@@ -353,7 +353,7 @@ export default function ClaimPage() {
                         >
                             <div className="flex flex-col items-center my-8">
                                 <label className="mb-2 text-3xl" htmlFor="lightning-address">
-                                    Enter any Lightning Address , Bolt11 Invoice, or LNURL
+                                    Enter any Lightning Address, Bolt11 Invoice, or LNURL
                                     <i
                                         className="info-button ml-2 pi pi-question-circle text-white cursor-pointer text-xl"
                                         data-pr-tooltip="How to claim?"
