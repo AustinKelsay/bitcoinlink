@@ -23,51 +23,48 @@ const MutinyModal = ({ mutinyModalVisible, setMutinyModalVisible, satsPerLink, n
 
     useEffect(() => {
         fetchedEvents.forEach(async (event) => {
-            if (event.tags[0][1] === appPublicKey) {
-                try {
-                    const decrypted = await nip04.decrypt(appPrivKey, event.pubkey, event.content);
-                    const decryptedSecret = JSON.parse(decrypted).secret;
-                    if (decryptedSecret === secret) {
-                        const nwcUri = `nostr+walletconnect://${event.pubkey}?relay=${relayUrl}&pubkey=${appPublicKey}&secret=${appPrivKey}`;
-
-                        if (nwcUri) {
-                            const { encryptedUrl, secret } = encryptNWCUrl(nwcUri);
-
-                            const oneYearFromNow = new Date();
-                            oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
-
-                            axios.post('/api/nwc', {
-                                url: encryptedUrl,
-                                maxAmount: numberOfLinks * satsPerLink,
-                                numLinks: numberOfLinks,
-                                expiresAt: oneYearFromNow,
-                            })
-                            .then(async (response) => {
-                                if (response.status === 201 && response.data?.id) {
-                                  showToast('success', 'NWC Created', 'The NWC has been successfully created.');
-                            
-                                  const generatedLinks = await generateLinks(response.data.id, secret);
-                                  setGeneratedLinks(generatedLinks);
-                                  setMutinyModalVisible(false);
-                            
-                                  setTimeout(() => {
-                                    setLinkModalVisible(true);
-                                  }, 500);
-                                }
-                              })
-                                .catch((error) => {
-                                    console.error('Error creating NWC', error);
-                                    showToast('error', 'Error Creating NWC', 'An error occurred while creating the NWC. Please try again.');
-                                });
-                        }
+          if (event.tags[0][1] === appPublicKey) {
+            try {
+              const decrypted = await nip04.decrypt(appPrivKey, event.pubkey, event.content);
+              const decryptedSecret = JSON.parse(decrypted).secret;
+              if (decryptedSecret === secret) {
+                const nwcUri = `nostr+walletconnect://${event.pubkey}?relay=${relayUrl}&pubkey=${appPublicKey}&secret=${appPrivKey}`;
+      
+                if (nwcUri) {
+                  const { encryptedUrl, secret } = encryptNWCUrl(nwcUri);
+      
+                  const oneYearFromNow = new Date();
+                  oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+      
+                  try {
+                    const response = await axios.post('/api/nwc', {
+                      url: encryptedUrl,
+                      maxAmount: numberOfLinks * satsPerLink,
+                      numLinks: numberOfLinks,
+                      expiresAt: oneYearFromNow,
+                    });
+      
+                    if (response.status === 201 && response.data?.id) {
+                      showToast('success', 'NWC Created', 'The NWC has been successfully created.');
+                      
+                      const generatedLinks = await generateLinks(response.data.id, secret);
+                      setGeneratedLinks(generatedLinks);
+                      setMutinyModalVisible(false);
+                      setLinkModalVisible(true);
                     }
-                } catch (error) {
-                    console.error('Error decrypting event', error);
-                    showToast('error', 'Error Decrypting Event', 'An error occurred while decrypting the event. Please try again.');
+                  } catch (error) {
+                    console.error('Error creating NWC', error);
+                    showToast('error', 'Error Creating NWC', 'An error occurred while creating the NWC. Please try again.');
+                  }
                 }
+              }
+            } catch (error) {
+              console.error('Error decrypting event', error);
+              showToast('error', 'Error Decrypting Event', 'An error occurred while decrypting the event. Please try again.');
             }
+          }
         });
-    }, [fetchedEvents, secret]);
+      }, [fetchedEvents, secret]);
 
     useEffect(() => {
         let sk = generatePrivateKey() // `sk` is a Uint8Array

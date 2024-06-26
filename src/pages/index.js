@@ -172,11 +172,24 @@ export default function Home() {
             </div>
             <div className='flex flex-col justify-between h-[12vh] my-8'>
               <AlbyButton handleSubmit={handleAlbySubmit} />
-              <MutinyButton disabled={true} handleSubmit={() => setMutinyModalVisible(true)} />
+              <MutinyButton handleSubmit={() => setMutinyModalVisible(true)} />
             </div>
           </div>
         )}
-      {generatedLinks && generatedLinks.length > 0 && linkModalVisible && oneToManyNwcId && oneToManySecret && (
+      {mutinyModalVisible && (
+        <MutinyModal
+          mutinyModalVisible={mutinyModalVisible}
+          setMutinyModalVisible={setMutinyModalVisible}
+          setLinkModalVisible={setLinkModalVisible}
+          setGeneratedLinks={setGeneratedLinks}
+          generateLinks={generateLinks}
+          encryptNWCUrl={encryptNWCUrl}
+          numberOfLinks={numberOfLinks}
+          satsPerLink={satsPerLink}
+        />
+      )}
+
+      {linkModalVisible && generatedLinks.length > 0 && (
         <LinkModal
           generatedLinks={generatedLinks}
           linkModalVisible={linkModalVisible}
@@ -185,22 +198,7 @@ export default function Home() {
           oneToManyNwcId={oneToManyNwcId}
           oneToManySecret={oneToManySecret}
         />
-      )
-      }
-      {
-        satsPerLink && numberOfLinks && mutinyModalVisible && (
-          <MutinyModal
-            mutinyModalVisible={mutinyModalVisible}
-            setMutinyModalVisible={setMutinyModalVisible}
-            setLinkModalVisible={setLinkModalVisible} // Pass the setLinkModalVisible function
-            setGeneratedLinks={setGeneratedLinks} // Pass the setGeneratedLinks function
-            generateLinks={generateLinks}
-            encryptNWCUrl={encryptNWCUrl}
-            numberOfLinks={numberOfLinks}
-            satsPerLink={satsPerLink}
-          />
-        )
-      }
+      )}
     </main>
   );
 }
