@@ -172,7 +172,7 @@ export default function Home() {
             </div>
             <div className='flex flex-col justify-between h-[12vh] my-8'>
               <AlbyButton handleSubmit={handleAlbySubmit} />
-              <MutinyButton handleSubmit={() => setMutinyModalVisible(true)} />
+              <MutinyButton disabled={true} handleSubmit={() => setMutinyModalVisible(true)} />
             </div>
           </div>
         )}
