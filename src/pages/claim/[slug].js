@@ -11,6 +11,7 @@ import { Button } from 'primereact/button';
 import { ProgressSpinner } from 'primereact/progressspinner';
 import { Tooltip } from 'primereact/tooltip';
 import { useToast } from '@/hooks/useToast';
+import 'primeicons/primeicons.css';
 
 export default function ClaimPage() {
     const [linkInfo, setLinkInfo] = useState({});
