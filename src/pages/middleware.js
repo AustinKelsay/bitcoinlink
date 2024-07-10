@@ -12,7 +12,7 @@ export const config = {
   matcher: ['/api/:path*', '/((?!link).*)'],
 };
 
-export default async function combinedMiddleware(request: NextRequest) {
+export default async function combinedMiddleware(request) {
   const ip = request.ip ?? '127.0.0.1';
   const hostname = request.nextUrl.hostname;
   const referer = request.headers.get('referer') || '';
