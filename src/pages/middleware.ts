@@ -35,7 +35,7 @@ export default async function combinedMiddleware(request: NextRequest) {
 
   // Apply referer check for all other routes
   if (!referer.startsWith(allowedBaseReferer)) {
-    return new NextResponse(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   // Apply rate limiting for all other routes
