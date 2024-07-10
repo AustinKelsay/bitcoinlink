@@ -10,7 +10,6 @@ export default async function handler(req, res) {
             res.status(500).json({ error: 'Internal server error' });
         }
     } else {
-        // Handle any other HTTP method
         res.setHeader('Allow', ['GET', 'POST']);
         res.status(405).end(`Method ${req.method} Not Allowed`);
     }

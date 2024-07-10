@@ -12,6 +12,8 @@
   "dependencies": {
     "@getalby/sdk": "^3.5.0",
     "@prisma/client": "^5.13.0",
+    "@upstash/ratelimit": "^1.2.1",
+    "@vercel/kv": "^2.0.0",
     "axios": "^1.6.8",
     "bech32": "^2.0.0",
     "cross-fetch": "^4.0.0",
