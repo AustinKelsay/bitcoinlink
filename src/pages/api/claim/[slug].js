@@ -2,7 +2,6 @@ import { webln } from "@getalby/sdk";
 import { getNwcById, deleteNwc } from "@/models/nwcModels";
 import { getBolt11Amount } from "@/utils/bolt11";
 import { getLinkByNwcIdAndIndex, deleteLink } from "@/models/linkModels";
-import { checkReferer } from "@/middleware/checkRefererMiddleware";
 import crypto from "crypto";
 import "websocket-polyfill";
 import fetch from "cross-fetch";
@@ -163,7 +162,6 @@ const handleGetRequest = async (req, res) => {
 };
 
 export default async function handler(req, res) {
-    checkReferer(req, res, async () => {
         switch (req.method) {
             case 'POST':
                 if (req.query.slug === "clwf9yz6n00001jgso4nmruxe") {
@@ -180,5 +178,4 @@ export default async function handler(req, res) {
                 res.status(405).end(`Method ${req.method} Not Allowed`);
                 break;
         }
-    });
 }
