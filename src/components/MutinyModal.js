@@ -3,23 +3,95 @@ import { Dialog } from "primereact/dialog";
 import { nip04 } from "nostr-tools";
 import MutinyButton from "@/components/MutinyButton";
 import { useToast } from "@/hooks/useToast";
-import LinkModal from "@/components/LinkModal";
 import { QRCodeSVG } from 'qrcode.react';
+import { v4 as uuidv4 } from 'uuid';
 import useSubscribetoEvents from "@/hooks/useSubscribetoEvents";
 import { generatePrivateKey, getPublicKey } from 'nostr-tools';
 import crypto from 'crypto';
 import axios from 'axios';
 
-const MutinyModal = ({ mutinyModalVisible, setMutinyModalVisible, satsPerLink, numberOfLinks, generateLinks, setLinkModalVisible, setGeneratedLinks }) => {
+const MutinyModal = ({ mutinyModalVisible, setMutinyModalVisible, satsPerLink, numberOfLinks, setLinkModalVisible, setGeneratedLinks, generatingLinks, setGeneratingLinks }) => {
     const [secret, setSecret] = useState('');
     const [appPublicKey, setAppPublicKey] = useState('');
     const [appPrivKey, setAppPrivKey] = useState('');
     const [mutinySettingsUrl, setMutinySettingsUrl] = useState('');
     const [nwaUri, setNwaUri] = useState('');
+    const [oneToManyNwcId, setOneToManyNwcId] = useState('');
+    const [oneToManySecret, setOneToManySecret] = useState('');
     const relayUrl = encodeURIComponent('wss://nostr.mutinywallet.com/');
 
     const { showToast } = useToast();
     const { subscribeToEvents, fetchedEvents } = useSubscribetoEvents();
+
+    const generateLinks = async (newNWCUrl) => {
+      if (newNWCUrl) {
+        setGeneratingLinks(true);
+        // first generate the one-to-many NWC with links for the API
+        const { oneToManyNwcId, oneToManySecret } = await generateOneToManyNWC(newNWCUrl);
+        setOneToManyNwcId(oneToManyNwcId);
+        setOneToManySecret(oneToManySecret);
+
+        // Then generate the one-to-one NWC and links for the user
+        const links = [];
+        for (let i = 0; i < numberOfLinks; i++) {
+          const { encryptedUrl, secret } = encryptNWCUrl(newNWCUrl);
+
+          const amount = numberOfLinks * satsPerLink;
+          const yearFromNow = new Date();
+          yearFromNow.setFullYear(yearFromNow.getFullYear() + 1);
+
+          const createdNwc = await axios.post('/api/nwc', {
+            url: encryptedUrl,
+            maxAmount: amount / numberOfLinks,
+            numLinks: 1,
+            expiresAt: yearFromNow,
+          });
+
+          if (createdNwc.status === 201 && createdNwc.data?.id) {
+            const linkIndex = uuidv4();
+            const link = `bitcoinlink.app/claim/${createdNwc.data?.id}?secret=${secret}&linkIndex=${linkIndex}`;
+            links.push(link);
+            const createdLink = await axios.post('/api/links', {
+              nwcId: createdNwc.data.id,
+              linkIndex: linkIndex,
+            });
+
+            if (createdLink.status === 201) {
+              continue;
+            } else {
+              showToast('error', 'Error Creating Link', 'An error occurred while creating a link. Please try again.');
+            }
+          } else {
+            showToast('error', 'Error Creating NWC', 'An error occurred while creating the NWC. Please try again.');
+          }
+        }
+        setGeneratedLinks(links);
+        setGeneratingLinks(false);
+        setLinkModalVisible(true);
+        showToast('success', 'Links Created', 'The links have been created successfully.');
+      } else {
+        throw new Error('No NWC url returned');
+      }
+    };
+
+    const generateOneToManyNWC = async (newNWCUrl) => {
+      const { encryptedUrl, secret } = encryptNWCUrl(newNWCUrl);
+  
+      const yearFromNow = new Date();
+      yearFromNow.setFullYear(yearFromNow.getFullYear() + 1);
+      const amount = numberOfLinks * satsPerLink;
+  
+      const createdNwc = await axios.post('/api/nwc', {
+        url: encryptedUrl,
+        maxAmount: amount,
+        numLinks: numberOfLinks,
+        expiresAt: yearFromNow,
+      });
+  
+      if (createdNwc.status === 201 && createdNwc.data?.id) {
+        return { oneToManyNwcId: createdNwc.data.id, oneToManySecret: secret };
+      }
+    }
 
     useEffect(() => {
         fetchedEvents.forEach(async (event) => {
@@ -31,31 +103,7 @@ const MutinyModal = ({ mutinyModalVisible, setMutinyModalVisible, satsPerLink, n
                 const nwcUri = `nostr+walletconnect://${event.pubkey}?relay=${relayUrl}&pubkey=${appPublicKey}&secret=${appPrivKey}`;
       
                 if (nwcUri) {
-                  const { encryptedUrl, secret } = encryptNWCUrl(nwcUri);
-      
-                  const oneYearFromNow = new Date();
-                  oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
-      
-                  try {
-                    const response = await axios.post('/api/nwc', {
-                      url: encryptedUrl,
-                      maxAmount: numberOfLinks * satsPerLink,
-                      numLinks: numberOfLinks,
-                      expiresAt: oneYearFromNow,
-                    });
-      
-                    if (response.status === 201 && response.data?.id) {
-                      showToast('success', 'NWC Created', 'The NWC has been successfully created.');
-                      
-                      const generatedLinks = await generateLinks(response.data.id, secret);
-                      setGeneratedLinks(generatedLinks);
-                      setMutinyModalVisible(false);
-                      setLinkModalVisible(true);
-                    }
-                  } catch (error) {
-                    console.error('Error creating NWC', error);
-                    showToast('error', 'Error Creating NWC', 'An error occurred while creating the NWC. Please try again.');
-                  }
+                  await generateLinks(nwcUri);
                 }
               }
             } catch (error) {

@@ -7,7 +7,6 @@ import MutinyButton from '@/components/MutinyButton';
 import MutinyModal from '@/components/MutinyModal';
 import axios from 'axios';
 import crypto from 'crypto';
-import useSubscribetoEvents from "@/hooks/useSubscribetoEvents.js";
 import { useToast } from '@/hooks/useToast';
 import { v4 as uuidv4 } from 'uuid';
 import 'primeicons/primeicons.css';
@@ -24,7 +23,6 @@ export default function Home() {
   const [generatingLinks, setGeneratingLinks] = useState(false);
   const [secret, setSecret] = useState('');
 
-  const { subscribeToEvents, fetchedEvents } = useSubscribetoEvents();
   const { showToast } = useToast();
 
   const encryptNWCUrl = (url) => {
@@ -125,27 +123,6 @@ export default function Home() {
     }
   }
 
-  const generateLinks = async (nwcId, secret) => {
-    const links = [];
-    for (let i = 0; i < numberOfLinks; i++) {
-      const linkIndex = uuidv4();
-      const link = `bitcoinlink.app/claim/${nwcId}?secret=${secret}&linkIndex=${linkIndex}`;
-      links.push(link);
-      axios.post('/api/links', {
-        nwcId,
-        linkIndex: linkIndex,
-      })
-        .then((response) => {
-          console.log('Link created', response.data);
-        })
-        .catch((error) => {
-          console.error('Error creating link', error);
-          showToast('error', 'Error Creating Link', 'An error occurred while creating a link. Please try again.');
-        });
-    }
-    return links;
-  };
-
   return (
     <main className={'flex flex-col items-center justify-evenly p-8'}>
       <h1 className="text-6xl">BitcoinLink</h1>
@@ -182,7 +159,8 @@ export default function Home() {
           setMutinyModalVisible={setMutinyModalVisible}
           setLinkModalVisible={setLinkModalVisible}
           setGeneratedLinks={setGeneratedLinks}
-          generateLinks={generateLinks}
+          generatingLinks={generatingLinks}
+          setGeneratingLinks={setGeneratingLinks}
           encryptNWCUrl={encryptNWCUrl}
           numberOfLinks={numberOfLinks}
           satsPerLink={satsPerLink}
