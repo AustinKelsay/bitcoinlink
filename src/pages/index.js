@@ -125,7 +125,8 @@ export default function Home() {
 
   return (
     <main className={'flex flex-col items-center justify-evenly p-8'}>
-      <h1 className="text-6xl">BitcoinLink</h1>
+      <h1 className="text-6xl mb-0">BitcoinLink</h1>
+      <p>Create single use non-custodial bitcoin links redeemable via Lightning</p>
       {generatingLinks ? (
         <>
           <p>Generating links...</p>

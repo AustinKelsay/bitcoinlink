@@ -87,8 +87,6 @@ const handlePostRequest = async (req, res) => {
     try {
         const nwc = await getNwcById(slug);
 
-        console.log('nwc on endpoint', nwc);
-
         if (!nwc) {
             return res.status(404).json({ error: 'NWC not found' });
         }
@@ -113,8 +111,6 @@ const handlePostRequest = async (req, res) => {
         await nwcProvider.enable();
 
         const response = await nwcProvider.sendPayment(invoice);
-
-        console.log('payment response on api', response);
 
         nwcProvider.close(); // close the websocket connection
         if (!response) {
