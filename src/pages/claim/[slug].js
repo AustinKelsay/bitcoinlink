@@ -169,14 +169,28 @@ export default function ClaimPage() {
                                     );
                                     return;
                                 }
-                            } catch {
-                                console.error("Error sending payment");
+                            } catch (error) {
+                                console.error("Error sending payment:", error);
                                 setIsSubmitting(false);
-                                showToast(
-                                    "error",
-                                    "Error Sending Payment",
-                                    "An error occurred while sending the payment. Please try again."
-                                );
+                                if (error.response && error.response.data && error.response.data.error === "Insufficient budget remaining to make payment") {
+                                    showToast(
+                                        "error",
+                                        "Insufficient Budget",
+                                        "There is not enough budget remaining to make this payment."
+                                    );
+                                } else if (error.response && error.response.status === 400 && error.response.data.error === "Invalid invoice amount") {
+                                    showToast(
+                                        "warn",
+                                        "Invalid Invoice Amount",
+                                        "The invoice amount does not match the expected amount."
+                                    );
+                                } else {
+                                    showToast(
+                                        "error",
+                                        "Error Sending Payment",
+                                        "An error occurred while sending the payment. Please try again."
+                                    );
+                                }
                                 return;
                             }
                         } else {

@@ -75,6 +75,9 @@ const handleNwcReplacementPostRequest = async (req, res) => {
                 }
             }
         } catch (error) {
+            if (error.message === "Insufficient budget remaining to make payment") {
+                return res.status(400).json({ error: error.message });
+            }
             return res.status(500).json({ error: error.message });
         }
 }
@@ -132,6 +135,9 @@ const handlePostRequest = async (req, res) => {
             }
         }
     } catch (error) {
+        if (error.message === "Insufficient budget remaining to make payment") {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: error.message });
     }
 };
