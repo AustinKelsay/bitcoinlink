@@ -472,7 +472,7 @@ export default function ClaimPage() {
                         </form>
                         <div className="flex flex-col my-4">
                             <p className="text-2xl text-center my-0">OR</p>
-                            <div className="flex flex-col w-[225px] justify-between mx-auto h-[25vh]">
+                            <div className="flex flex-col w-[225px] justify-between mx-auto h-[30vh] mb-4">
                                 <AlbyButton text="Claim with Alby" handleSubmit={handleAlbySubmit} />
                                 <StrikeButton text="Claim with Strike" handleSubmit={() => setIsStrikeVisible(true)} />
                                 <MutinyButton text="Claim with Mutiny" handleSubmit={() => setIsMutinyVisible(true)} />
