@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useRouter } from 'next/router';
-import { ClaimInstructionsModal } from '@/components/ClaimInstructionsModal';
+import StrikeInstructions from '@/components/strike/StrikeInstructions';
+import CashAppInstructions from '@/components/cashapp/CashAppInstructions';
+import MutinyInstructions from '@/components/mutiny/MutinyInstructions';
 import { validateBolt11 } from '@/utils/bolt11';
-import CashAppButton from '@/components/CashAppButton';
-import MutinyButton from '@/components/MutinyButton';
+import CashAppButton from '@/components/cashapp/CashAppButton';
+import MutinyButton from '@/components/mutiny/MutinyButton';
+import StrikeButton from '@/components/strike/StrikeButton';
 import AlbyButton from '@/components/AlbyButton';
 import { InputText } from 'primereact/inputtext';
 import { Button } from 'primereact/button';
 import { ProgressSpinner } from 'primereact/progressspinner';
-import { Tooltip } from 'primereact/tooltip';
 import { useToast } from '@/hooks/useToast';
 import 'primeicons/primeicons.css';
 
@@ -17,10 +19,11 @@ export default function ClaimPage() {
     const [linkInfo, setLinkInfo] = useState({});
     const [claimed, setClaimed] = useState(false);
     const [exists, setExists] = useState(true);
-    const [lightningAddress, setLightningAddress] = useState('');
+    const [input, setInput] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isVisible, setIsVisible] = useState(false);
-
+    const [isStrikeVisible, setIsStrikeVisible] = useState(false);
+    const [isCashAppVisible, setIsCashAppVisible] = useState(false);
+    const [isMutinyVisible, setIsMutinyVisible] = useState(false);
     const router = useRouter();
 
     const { slug, linkIndex, secret } = router.query;
@@ -54,8 +57,8 @@ export default function ClaimPage() {
         setIsSubmitting(true);
         if (slug && linkIndex && secret && linkInfo) {
             try {
-                if (lightningAddress) {
-                    const validInput = parseLightningAddress(lightningAddress);
+                if (input) {
+                    const validInput = parseLightningAddress(input);
                     if (validInput) {
                         let invoice;
                         if (validInput.type === "lnurl") {
@@ -321,14 +324,88 @@ export default function ClaimPage() {
         }
     };
 
+    const handleAlbySubmit = async () => {
+        try {
+            setIsSubmitting(true);
+            if (window && window?.webln) {
+                await window.webln.enable();
+                const result = await window.webln.makeInvoice({
+                    amount: linkInfo?.amount,
+                    comment: "Reward",
+                });
+                if (result && result?.paymentRequest) {
+                    try {
+                        const claimresponse = await axios.post(`/api/claim/${slug}?linkIndex=${linkIndex}`, {
+                            invoice: result.paymentRequest,
+                        }, {
+                            headers: {
+                                authorization: secret,
+                            }
+                        });
+
+                        if (claimresponse.status === 200) {
+                            showToast(
+                                "success",
+                                "Payment Sent",
+                                "The payment has been successfully sent."
+                            );
+
+
+                            showToast(
+                                "success",
+                                "Link Claimed",
+                                "The link has been successfully claimed."
+                            );
+                            setTimeout(() => {
+                                setIsSubmitting(false);
+                                setClaimed(true);
+                            }, 2000);
+
+                        } else if (claimresponse.status === 400 && claimresponse.data.error === "Invalid invoice amount") {
+                            console.error("Invalid Invoice Amount");
+                            setIsSubmitting(false);
+                            showToast(
+                                "warn",
+                                "Invalid Invoice Amount",
+                                "The invoice amount does not match the expected amount."
+                            );
+                            return;
+                        } else {
+                            console.error("Error sending payment");
+                            setIsSubmitting(false);
+                            showToast(
+                                "error",
+                                "Error Sending Payment",
+                                "An error occurred while sending the payment. Please try again."
+                            );
+                            return;
+                        }
+                    } catch {
+                        console.error("Error sending payment");
+                        setIsSubmitting(false);
+                        showToast(
+                            "error",
+                            "Error Sending Payment",
+                            "An error occurred while sending the payment. Please try again."
+                        );
+                        return;
+                    }
+                }
+            }
+        } catch {
+            console.error("Error sending payment");
+            setIsSubmitting(false);
+            showToast(
+                "error",
+                "Error Sending Payment",
+                "An error occurred while sending the payment. Please try again."
+            );
+            return;
+        }
+    }
+
     return (
         <main className="flex flex-col items-center justify-evenly p-8 sm:w-[80vw] md:w-[70vw] lg:w-[60vw] xl:w-[50vw] mx-auto">
-            <ClaimInstructionsModal
-                isVisible={isVisible}
-                onHide={() => {
-                    setIsVisible(false);
-                }}
-            />
             {!exists ? (
                 <>
                     <h1 className="text-6xl mb-0">Link not found</h1>
@@ -336,16 +413,16 @@ export default function ClaimPage() {
                 </>
             ) : (
                 <>
-                    <h1 className="text-6xl">
+                    <h1 className="text-6xl mb-0">
                         {claimed ? "Link Claimed" : "Claim Link"}
                     </h1>
                     <div className="flex flex-col items-center">
-                        <p className="text-2xl">
-                            Status: {claimed ? "Claimed" : "Unclaimed"}
+                        <p className="text-2xl mt-0">
+                            <span className={`${claimed ? "text-green-500" : "text-yellow-500"}`}>{claimed ? "Claimed" : "Unclaimed"}</span>
                         </p>
                         {claimed || !linkInfo ? null : (
-                            <p className="text-2xl">
-                                Amount: {linkInfo?.amount} sats
+                            <p className="text-3xl mt-0">
+                                {linkInfo?.amount} sats
                             </p>
                         )}
                         <form
@@ -355,24 +432,13 @@ export default function ClaimPage() {
                             <div className="flex flex-col items-center my-8">
                                 <label className="mb-2 text-3xl" htmlFor="lightning-address">
                                     Enter any Lightning Address, Bolt11 Invoice, or LNURL
-                                    <i
-                                        className="info-button ml-2 pi pi-question-circle text-white cursor-pointer text-xl"
-                                        data-pr-tooltip="How to claim?"
-                                        data-pr-position="right"
-                                        data-pr-my="left center-2"
-                                        onClick={() => {
-                                            setIsVisible(true);
-                                        }}
-                                    >
-                                        <Tooltip target=".info-button" />
-                                    </i>
                                 </label>
                                 <InputText
                                     className="w-full"
                                     id="lightning-address"
                                     placeholder="user@website.com... or lnbc1q or LNURL1..."
-                                    value={lightningAddress}
-                                    onChange={(e) => setLightningAddress(e.target.value)}
+                                    value={input}
+                                    onChange={(e) => setInput(e.target.value)}
                                 />
                             </div>
                             {isSubmitting ? (
@@ -390,17 +456,27 @@ export default function ClaimPage() {
                                 />
                             )}
                         </form>
-                        <div className="flex flex-col my-6">
-                            <p className="text-2xl">Coming soon! claim instantly with:</p>
-                            <div className="flex flex-col w-[225px] justify-between mx-auto md:h-[18vh] h-[25vh]">
-                                <AlbyButton handleSubmit={() => null} disabled={true} />
-                                <MutinyButton handleSubmit={() => null} disabled={true} />
-                                <CashAppButton handleSubmit={() => null} disabled={true} />
+                        <div className="flex flex-col my-4">
+                            <p className="text-2xl text-center my-0">OR</p>
+                            <div className="flex flex-col w-[225px] justify-between mx-auto h-[25vh]">
+                                <AlbyButton text="Claim with Alby" handleSubmit={handleAlbySubmit} />
+                                <StrikeButton text="Claim with Strike" handleSubmit={() => setIsStrikeVisible(true)} />
+                                <MutinyButton text="Claim with Mutiny" handleSubmit={() => setIsMutinyVisible(true)} />
+                                <CashAppButton text="Claim with CashApp" handleSubmit={() => setIsCashAppVisible(true)} />
                             </div>
                         </div>
                     </div>
                 </>
             )}
+            <StrikeInstructions isVisible={isStrikeVisible} onHide={() => {
+                setIsStrikeVisible(false);
+            }} input={input} setInput={setInput} onSubmit={handleSubmit} />
+            <CashAppInstructions isVisible={isCashAppVisible} onHide={() => {
+                setIsCashAppVisible(false);
+            }} input={input} setInput={setInput} onSubmit={handleSubmit} amount={linkInfo?.amount} />
+            <MutinyInstructions isVisible={isMutinyVisible} onHide={() => {
+                setIsMutinyVisible(false);
+            }} input={input} setInput={setInput} onSubmit={handleSubmit} amount={linkInfo?.amount} />
         </main>
     )
 }

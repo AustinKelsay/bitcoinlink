@@ -16,12 +16,12 @@ const AlbySVG = () => (
     
 );
 
-const AlbyButton = ({ handleSubmit, disabled }) => {
+const AlbyButton = ({ text, handleSubmit, disabled }) => {
   return (
-    <Button disabled={disabled ? true : false} className="p-button-success hover:opacity-75" style={{ backgroundColor: '#FFDE6E', borderColor: '#FFDE6E', padding: '10px 20px' }} onClick={handleSubmit}>
+    <Button disabled={disabled ? true : false} className="p-button-success hover:opacity-75 w-[235px] mx-auto" style={{ backgroundColor: '#FFDE6E', borderColor: '#FFDE6E', padding: '10px 20px' }} onClick={handleSubmit}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
         <AlbySVG style={{ width: '21px', height: '22px' }} />
-        <span style={{ color: 'black' }}>{!disabled ? "Generate with Alby" : "Alby"}</span>
+        <span style={{ color: 'black' }}>{text}</span>
       </div>
     </Button>
   );

@@ -32,3 +32,6 @@ body {
     rgb(var(--background-start-rgb));
 }
 
+p {
+  font-family: 'Jersey 15', sans-serif;
+}

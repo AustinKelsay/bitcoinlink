@@ -3,8 +3,8 @@ import { InputNumber } from 'primereact/inputnumber';
 import { nwc } from '@getalby/sdk';
 import { ProgressSpinner } from 'primereact/progressspinner';
 import AlbyButton from '@/components/AlbyButton';
-import MutinyButton from '@/components/MutinyButton';
-import MutinyModal from '@/components/MutinyModal';
+import MutinyButton from '@/components/mutiny/MutinyButton';
+import MutinyModal from '@/components/mutiny/MutinyModal';
 import axios from 'axios';
 import crypto from 'crypto';
 import { useToast } from '@/hooks/useToast';
@@ -149,8 +149,8 @@ export default function Home() {
               <InputNumber id='sats' value={satsPerLink} onValueChange={(e) => setSatsPerLink(e.value)} />
             </div>
             <div className='flex flex-col justify-between h-[12vh] my-8'>
-              <AlbyButton handleSubmit={handleAlbySubmit} />
-              <MutinyButton disabled={true} handleSubmit={() => setMutinyModalVisible(true)} />
+              <AlbyButton text="Generate with Alby" handleSubmit={handleAlbySubmit} />
+              <MutinyButton text="Generate with Mutiny" disabled={false} handleSubmit={() => setMutinyModalVisible(true)} />
             </div>
           </div>
         )}

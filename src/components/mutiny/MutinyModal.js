@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Dialog } from "primereact/dialog";
 import { nip04 } from "nostr-tools";
-import MutinyButton from "@/components/MutinyButton";
+import MutinyButton from "@/components/mutiny/MutinyButton";
 import { useToast } from "@/hooks/useToast";
 import { QRCodeSVG } from 'qrcode.react';
 import { v4 as uuidv4 } from 'uuid';
@@ -185,7 +185,7 @@ const MutinyModal = ({ mutinyModalVisible, setMutinyModalVisible, satsPerLink, n
 
                 <p>Or click the button below to open Mutiny Wallet in your browser</p>
 
-                <MutinyButton handleSubmit={handleOpenInBrowser} />
+                <MutinyButton text="Open Mutiny Wallet" handleSubmit={handleOpenInBrowser} />
             </Dialog>
         </>
     )
