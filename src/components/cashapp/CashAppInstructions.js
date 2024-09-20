@@ -33,7 +33,7 @@ const CashAppInstructions = ({ isVisible, onHide, input, setInput, onSubmit, amo
         <Dialog className='w-full' header='CashApp Instructions' visible={isVisible} onHide={onHide}>
             <p className='text-xl font-bold'>Paste your Lightning Network Invoice into the field below.</p>
             <div className='flex flex-col gap-2 my-4 w-full mx-auto'>
-                <InputText className='w-full' placeholder="Enter your Lightning Invoice" value={input} onChange={(e) => setInput(e.target.value)} />
+                <InputText className='w-fit' placeholder="Enter your Lightning Invoice" value={input} onChange={(e) => setInput(e.target.value)} />
                 <Button severity='success' className='w-full' label="Submit" onClick={(e) => handleSubmit(e)} />
             </div>
             <Steps model={items} activeIndex={activeIndex} onSelect={(e) => setActiveIndex(e.index)} readOnly={false} />
