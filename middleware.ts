@@ -12,7 +12,9 @@ export const config = {
   matcher: ['/api/:path*', '/((?!link).*)'],
 };
 
-export default async function combinedMiddleware(request) {
+export default async function combinedMiddleware(
+  request: NextRequest
+): Promise<NextResponse> {
   const ip = request.ip ?? '127.0.0.1';
   const hostname = request.nextUrl.hostname;
   const referer = request.headers.get('referer') || '';
@@ -35,7 +37,9 @@ export default async function combinedMiddleware(request) {
 
   // Apply referer check for all other routes
   if (!referer.startsWith(allowedBaseReferer)) {
-    return new NextResponse(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
+    return new NextResponse(JSON.stringify({ error: 'Forbidden' }), {
+      status: 403,
+    });
   }
 
   // Apply rate limiting for all other routes
