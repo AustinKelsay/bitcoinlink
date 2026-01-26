@@ -93,20 +93,42 @@ deleteNwc(id) → NWC
 **Location:** `src/models/linkModels.js`
 
 ```javascript
+// Get all links with NWC details
+getAllLinks() → Link[]
+
 // Create new link record
-createLink({ nwcId, linkIndex }) → Link
+createLink({ nwcId, linkIndex, isClaimed?, wasServedAPI? }) → Link
 
 // Get link by NWC ID and link index
 getLinkByNwcIdAndIndex(nwcId, linkIndex) → Link | null
 
-// Update link claimed status
-updateLinkClaimed(id, isClaimed) → Link
+// Get first unclaimed, unserved link for an NWC
+getNewLink(nwcId) → Link | null
+
+// Mark link as served via API
+markLinkServed(id) → Link
+
+// Claim a link (mark as claimed using nwcId and linkIndex)
+claimLink(nwcId, linkIndex) → { count: number }
 
 // Delete link by ID
 deleteLink(id) → Link
+```
 
-// Update API served status
-updateLinkWasServedAPI(id, wasServedAPI) → Link
+**Note:** `claimLink` uses `updateMany` with filters to ensure only unclaimed links are updated:
+```javascript
+export const claimLink = async (nwcId, linkIndex) => {
+    return await prisma.Link.updateMany({
+        where: {
+            nwcId,
+            linkIndex,
+            isClaimed: false // Ensure we only update unclaimed links
+        },
+        data: {
+            isClaimed: true
+        }
+    });
+};
 ```
 
 ### Prisma Client

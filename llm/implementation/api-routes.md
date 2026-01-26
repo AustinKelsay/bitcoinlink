@@ -23,9 +23,15 @@ Creates a new NWC record with encrypted wallet connection URL.
 **Response (201):**
 ```json
 {
-  "id": "clwf9yz6n00001jgso4nmruxe"
+  "id": "clwf9yz6n00001jgso4nmruxe",
+  "url": "string",
+  "expiresAt": "2025-05-01T00:00:00.000Z",
+  "maxAmount": 10000,
+  "numLinks": 10
 }
 ```
+
+Returns the full NWC object with all fields.
 
 **Error Responses:**
 - `400` - Missing required fields
@@ -50,9 +56,15 @@ Creates a new link record associated with an NWC.
 **Response (201):**
 ```json
 {
-  "id": "clwfa1234500001jgso4abcde"
+  "id": "clwfa1234500001jgso4abcde",
+  "linkIndex": "550e8400-e29b-41d4-a716-446655440000",
+  "nwcId": "clwf9yz6n00001jgso4nmruxe",
+  "isClaimed": false,
+  "wasServedAPI": false
 }
 ```
+
+Returns the full Link object with all fields.
 
 **Error Responses:**
 - `400` - Missing required fields
@@ -75,14 +87,15 @@ Generates a new link for programmatic/API access from a one-to-many NWC.
 **Response (200):**
 ```json
 {
-  "link": "bitcoinlink.app/claim/{nwcId}?secret={secret}&linkIndex={linkIndex}"
+  "newLink": "https://www.bitcoinlink.app/claim/{nwcId}?secret={secret}&linkIndex={linkIndex}"
 }
 ```
 
+Note: The response property is `newLink` (not `link`) and includes the full URL with `https://www.` prefix.
+
 **Error Responses:**
-- `400` - NWC has no remaining links
 - `401` - Missing authorization header
-- `404` - NWC not found
+- `404` - NWC not found (also returned for reserved slug `clwf9yz6n00001jgso4nmruxe`)
 - `500` - Server error
 
 **Location:** `src/pages/api/link/[slug].js`
@@ -173,6 +186,27 @@ Executes payment via NWC and marks link as claimed.
 All endpoints are protected by Upstash rate limiting middleware:
 - **Limit:** 5 requests per 10 seconds per IP
 - **Implementation:** `middleware.js` using `@upstash/ratelimit`
+
+## Referer Validation
+
+The middleware enforces referer validation for most routes:
+- **Allowed Referer:** `https://www.bitcoinlink.app`
+- **Bypass:** Requests from `www.bitcoinlink.app` or `bitcoinlink.app` hostnames
+- **Bypass:** Paths starting with `/link` (only rate limited, no referer check)
+- **Response:** 403 Forbidden if referer doesn't match
+
+```javascript
+const allowedBaseReferer = 'https://www.bitcoinlink.app';
+
+if (!referer.startsWith(allowedBaseReferer)) {
+  return new NextResponse(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
+}
+```
+
+## Reserved Slugs
+
+The following slugs are reserved and will return 404:
+- `clwf9yz6n00001jgso4nmruxe` - Reserved/example slug used in documentation
 
 ## Authentication
 

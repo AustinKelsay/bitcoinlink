@@ -98,6 +98,7 @@ BitcoinLink uses Next.js's integrated architecture:
 2. **Secret in URL**: Decryption secrets are embedded in link URLs (never stored server-side)
 3. **One-Time Use**: Links are deleted after successful payment
 4. **Rate Limiting**: IP-based rate limiting via Upstash (5 requests per 10 seconds)
+5. **Referer Validation**: Middleware validates referer header from `https://www.bitcoinlink.app`
 
 ## Key Entry Points
 

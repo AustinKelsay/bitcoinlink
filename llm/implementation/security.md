@@ -105,6 +105,38 @@ const { success } = await ratelimit.limit(ip);
 - **Scope:** Per IP address
 - **Storage:** Vercel KV (Redis)
 
+## Referer Validation
+
+**Location:** `middleware.js`
+
+The middleware enforces referer header validation to prevent unauthorized API access:
+
+```javascript
+const allowedBaseReferer = 'https://www.bitcoinlink.app';
+
+// Bypass for production hostnames
+if (hostname === 'www.bitcoinlink.app' || hostname === 'bitcoinlink.app') {
+  return NextResponse.next();
+}
+
+// Bypass referer check for /link paths (only rate limited)
+if (request.nextUrl.pathname.startsWith('/link')) {
+  const { success } = await ratelimit.limit(ip);
+  return success ? NextResponse.next() : NextResponse.redirect(new URL('/blocked', request.url));
+}
+
+// Apply referer check for all other routes
+if (!referer.startsWith(allowedBaseReferer)) {
+  return new NextResponse(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
+}
+```
+
+**Configuration:**
+- **Allowed Referer:** `https://www.bitcoinlink.app`
+- **Bypass:** Requests from production hostnames (`www.bitcoinlink.app`, `bitcoinlink.app`)
+- **Bypass:** Paths starting with `/link` (only rate limited, no referer check)
+- **Response:** 403 Forbidden with JSON error if referer doesn't match
+
 ## Invoice Validation
 
 Before executing payment, the server validates the invoice:
@@ -179,6 +211,7 @@ const parseLightningAddress = (input) => {
 | Credential theft | AES-256-CBC encryption |
 | Database breach | Secrets not stored in DB |
 | Brute force | Rate limiting (5/10s) |
+| Unauthorized API access | Referer validation |
 | Invoice manipulation | Amount validation |
 | Link reuse | Single-use deletion |
 | Replay attacks | Link deletion after claim |

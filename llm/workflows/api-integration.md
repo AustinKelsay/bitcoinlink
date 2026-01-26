@@ -62,9 +62,11 @@ Authorization: {secret}
 **Success (200):**
 ```json
 {
-  "link": "bitcoinlink.app/claim/{nwcId}?secret={secret}&linkIndex={linkIndex}"
+  "newLink": "https://www.bitcoinlink.app/claim/{nwcId}?secret={secret}&linkIndex={linkIndex}"
 }
 ```
+
+Note: The response property is `newLink` (not `link`) and includes the full URL with `https://www.` prefix.
 
 **Error Responses:**
 
@@ -144,7 +146,8 @@ async function generatePaymentLink() {
       }
     });
 
-    const link = `https://${response.data.link}`;
+    // Response uses 'newLink' property with full URL
+    const link = response.data.newLink;
     console.log('Generated link:', link);
     return link;
   } catch (error) {
@@ -177,7 +180,8 @@ def generate_payment_link():
     )
 
     if response.status_code == 200:
-        link = f"https://{response.json()['link']}"
+        # Response uses 'newLink' property with full URL
+        link = response.json()['newLink']
         print(f'Generated link: {link}')
         return link
     elif response.status_code == 400:
@@ -303,10 +307,10 @@ export default async function handler(req, res) {
       wasServedAPI: true
     });
 
-    // Return link URL
-    const link = `bitcoinlink.app/claim/${nwc.id}?secret=${secret}&linkIndex=${linkIndex}`;
+    // Return link URL with full https://www. prefix
+    const newFormattedLink = `https://www.bitcoinlink.app/claim/${newNwc.id}?secret=${secret}&linkIndex=${newLink.linkIndex}`;
 
-    return res.status(200).json({ link });
+    return res.status(200).json({ newLink: newFormattedLink });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
