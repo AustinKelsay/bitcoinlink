@@ -235,8 +235,10 @@ const parseLightningAddress = (input: string): ParsedInput | false => {
 ### Gift Wrap Provides
 
 - **Sender anonymity:** Ephemeral pubkeys for each link
-- **Timestamp obfuscation:** Randomized up to 2 days in past
+- **Timestamp obfuscation:** Randomized up to 2 days in past (handled by snstr's `createDirectMessage`)
 - **Content encryption:** NIP-44 (modern, secure encryption)
+
+> **Note:** The gift-wrap timestamp is intentionally randomized by snstr to prevent timing analysis attacks. When validating received gift-wraps, do NOT reject events based on timestamp age alone—the randomization is a privacy feature, not a bug. However, extremely old timestamps (beyond the 2-day window) should be treated with caution as they may indicate replay attacks.
 
 ### What's NOT Logged
 

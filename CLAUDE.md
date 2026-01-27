@@ -23,7 +23,7 @@ npm run build
 
 ## Architecture Summary
 
-```
+```text
 BitcoinLink uses Nostr relays instead of a database.
 
 SENDER FLOW:

@@ -277,6 +277,14 @@ const payInvoiceAndMarkClaimed = async (invoice: string): Promise<boolean> => {
     await payInvoiceWithNWC(payload.nwcUrl, invoice);
 
     // 2. Publish deletion event to mark as claimed
+    // IMPORTANT: Double-claim guard when deletion publish fails
+    // If the payment succeeds but deletion publish fails, the link remains
+    // "unclaimed" on relays. However, the NWC budget is already spent.
+    // The next claim attempt will fail at the NWC payment step (insufficient funds
+    // or budget exceeded), NOT at the deletion check. This is acceptable because:
+    // - The original claimer already received their payment
+    // - The second claimer gets a clear payment error, not silent failure
+    // - No funds are lost (NWC enforces budget limits)
     const client = new BitcoinLinkNostrClient(linkData.relays);
     try {
       await client.connect();

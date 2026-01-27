@@ -88,7 +88,7 @@ The encoded data contains:
 ### Prerequisites
 - Node.js 18+
 - npm or yarn
-- [snstr](https://github.com/AustinKelsay/snstr) library (local dependency)
+- [snstr](https://github.com/AustinKelsay/snstr) library (available on npm as ^0.2.0)
 
 ### Setup
 

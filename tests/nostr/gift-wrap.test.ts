@@ -87,17 +87,21 @@ describe('Gift Wrap', () => {
   });
 
   describe('edge cases', () => {
-    it('should handle zero amount payload', async () => {
-      const zeroPayload: BitcoinLinkPayload = {
+    it('should reject zero amount payload on decryption', async () => {
+      // Zero amounts are invalid - links must have at least 1 sat
+      const zeroPayload = {
         type: 'bitcoinlink',
         nwcUrl: 'nostr+walletconnect://test?relay=wss://r.com&secret=s',
         amount: 0,
       };
 
-      const { giftWrap, receiverPrivateKey } = await createBitcoinLink(zeroPayload);
-      const decrypted = decryptBitcoinLink(giftWrap, receiverPrivateKey);
+      // createBitcoinLink doesn't validate - it just wraps the payload
+      const { giftWrap, receiverPrivateKey } = await createBitcoinLink(zeroPayload as BitcoinLinkPayload);
 
-      expect(decrypted.amount).toBe(0);
+      // But decryption validates and should reject zero amounts
+      expect(() => decryptBitcoinLink(giftWrap, receiverPrivateKey)).toThrow(
+        'Invalid payload: amount must be a positive integer (satoshis)'
+      );
     });
 
     it('should handle very large amounts', async () => {
@@ -242,17 +246,22 @@ describe('Gift Wrap', () => {
       expect(decrypted.nwcUrl).toBe(longNwcUrl);
     });
 
-    it('should handle floating point amounts', async () => {
-      const precisionPayload: BitcoinLinkPayload = {
-        type: 'bitcoinlink',
-        nwcUrl: 'nostr+walletconnect://test?relay=wss://r.com&secret=s',
-        amount: 0.1 + 0.2,
-      };
+    it('should handle various integer amounts', async () => {
+      // Test with different valid integer satoshi amounts
+      const amounts = [1, 100, 1000, 21000000];
 
-      const { giftWrap, receiverPrivateKey } = await createBitcoinLink(precisionPayload);
-      const decrypted = decryptBitcoinLink(giftWrap, receiverPrivateKey);
+      for (const amount of amounts) {
+        const payload: BitcoinLinkPayload = {
+          type: 'bitcoinlink',
+          nwcUrl: 'nostr+walletconnect://test?relay=wss://r.com&secret=s',
+          amount,
+        };
 
-      expect(decrypted.amount).toBe(0.1 + 0.2);
+        const { giftWrap, receiverPrivateKey } = await createBitcoinLink(payload);
+        const decrypted = decryptBitcoinLink(giftWrap, receiverPrivateKey);
+
+        expect(decrypted.amount).toBe(amount);
+      }
     });
   });
 });

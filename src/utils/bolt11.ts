@@ -46,7 +46,11 @@ export const getBolt11Amount = (invoice: string): number | null => {
       (section) => section.name === 'amount'
     );
     // Amount in BOLT11 is in millisatoshis, convert to satoshis
-    return amountSection ? Number(amountSection.value) / 1000 : null;
+    if (!amountSection) return null;
+    const amountMsats = Number(amountSection.value);
+    // Return null for non-numeric values (avoid NaN)
+    if (!Number.isFinite(amountMsats)) return null;
+    return amountMsats / 1000;
   } catch {
     return null;
   }

@@ -21,12 +21,12 @@ export default function Home(): React.ReactElement {
   const { showToast } = useToast();
 
   const handleAlbySubmit = async (): Promise<void> => {
-    if (!numberOfLinks || numberOfLinks < 1) {
-      showToast('warn', 'Invalid Input', 'Please enter a valid number of links.');
+    if (!numberOfLinks || numberOfLinks < 1 || !Number.isInteger(numberOfLinks)) {
+      showToast('warn', 'Invalid Input', 'Please enter a valid whole number of links.');
       return;
     }
-    if (!satsPerLink || satsPerLink < 1) {
-      showToast('warn', 'Invalid Input', 'Please enter a valid amount of sats per link.');
+    if (!satsPerLink || satsPerLink < 1 || !Number.isInteger(satsPerLink)) {
+      showToast('warn', 'Invalid Input', 'Please enter a valid whole number of sats per link.');
       return;
     }
 

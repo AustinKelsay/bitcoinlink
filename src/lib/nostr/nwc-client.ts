@@ -26,6 +26,11 @@ export async function payInvoiceWithNWC(
   nwcUrl: string,
   invoice: string
 ): Promise<PaymentResult> {
+  // Fail fast on empty or invalid invoice
+  if (!invoice || typeof invoice !== 'string' || invoice.trim().length === 0) {
+    throw new Error('Invalid invoice: invoice must be a non-empty string');
+  }
+
   let client: NostrWalletConnectClient | null = null;
 
   try {

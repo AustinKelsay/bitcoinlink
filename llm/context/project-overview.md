@@ -185,7 +185,7 @@ The encoded JSON contains:
 
 ## Testing
 
-Comprehensive test suite with 131 tests covering:
+Comprehensive test suite with 130+ tests covering:
 - Gift wrap encryption/decryption
 - URL encoding/decoding
 - Input validation

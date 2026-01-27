@@ -63,8 +63,8 @@ function validatePayload(payload: unknown): asserts payload is BitcoinLinkPayloa
     throw new Error('Invalid payload: nwcUrl must be a non-empty string');
   }
 
-  if (typeof p.amount !== 'number' || !Number.isFinite(p.amount) || p.amount < 0) {
-    throw new Error('Invalid payload: amount must be a non-negative finite number');
+  if (typeof p.amount !== 'number' || !Number.isFinite(p.amount) || !Number.isInteger(p.amount) || p.amount < 1) {
+    throw new Error('Invalid payload: amount must be a positive integer (satoshis)');
   }
 }
 
