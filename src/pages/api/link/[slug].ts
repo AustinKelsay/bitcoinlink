@@ -1,27 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import type { ApiErrorResponse, GetLinkResponse } from '@/types/api';
-import type { EncryptedNWCUrl } from '@/types/nwc';
 import { markLinkServed, createLink } from '@/models/linkModels';
 import { getNwcById, createNwc } from '@/models/nwcModels';
-import crypto from 'crypto';
+import { encryptNWCUrl, decryptNWCUrl } from '@/utils/crypto';
 import { v4 as uuidv4 } from 'uuid';
 
 type ResponseData = GetLinkResponse | ApiErrorResponse;
-
-const encryptNWCUrl = (url: string): EncryptedNWCUrl => {
-  const secret = crypto.randomBytes(32).toString('hex');
-  const cipher = crypto.createCipher('aes-256-cbc', secret);
-  let encryptedUrl = cipher.update(url, 'utf8', 'hex');
-  encryptedUrl += cipher.final('hex');
-  return { encryptedUrl, secret };
-};
-
-const decryptNWCUrl = (encryptedUrl: string, secret: string): string => {
-  const decipher = crypto.createDecipher('aes-256-cbc', secret);
-  let decryptedUrl = decipher.update(encryptedUrl, 'hex', 'utf8');
-  decryptedUrl += decipher.final('utf8');
-  return decryptedUrl;
-};
 
 export default async function handler(
   req: NextApiRequest,
@@ -30,7 +14,7 @@ export default async function handler(
   const { slug } = req.query;
   const token = req.headers.authorization;
 
-  if (slug === 'clwf9yz6n00001jgso4nmruxe') {
+  if (process.env.NWC_REPLACEMENT_ID && slug === process.env.NWC_REPLACEMENT_ID) {
     res.status(404).json({ error: 'NWC not found' });
     return;
   }

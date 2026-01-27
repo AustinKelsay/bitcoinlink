@@ -6,16 +6,11 @@ import AlbyButton from '@/components/AlbyButton';
 import MutinyButton from '@/components/mutiny/MutinyButton';
 import MutinyModal from '@/components/mutiny/MutinyModal';
 import axios from 'axios';
-import crypto from 'crypto';
+import { encryptNWCUrl } from '@/utils/crypto-browser';
 import { useToast } from '@/hooks/useToast';
 import { v4 as uuidv4 } from 'uuid';
 import 'primeicons/primeicons.css';
 import LinkModal from '@/components/LinkModal';
-
-interface EncryptedNWCResult {
-  encryptedUrl: string;
-  secret: string;
-}
 
 interface OneToManyNWCResult {
   oneToManyNwcId: string;
@@ -35,19 +30,11 @@ export default function Home(): React.ReactElement {
 
   const { showToast } = useToast();
 
-  const encryptNWCUrl = (url: string): EncryptedNWCResult => {
-    const newSecret = crypto.randomBytes(32).toString('hex');
-    setSecret(newSecret);
-    const cipher = crypto.createCipher('aes-256-cbc', newSecret);
-    let encryptedUrl = cipher.update(url, 'utf8', 'hex');
-    encryptedUrl += cipher.final('hex');
-    return { encryptedUrl, secret: newSecret };
-  };
-
   const generateOneToManyNWC = async (
     newNWCUrl: string
   ): Promise<OneToManyNWCResult | undefined> => {
-    const { encryptedUrl, secret: newSecret } = encryptNWCUrl(newNWCUrl);
+    const { encryptedUrl, secret: newSecret } = await encryptNWCUrl(newNWCUrl);
+    setSecret(newSecret);
 
     const yearFromNow = new Date();
     yearFromNow.setFullYear(yearFromNow.getFullYear() + 1);
@@ -95,7 +82,7 @@ export default function Home(): React.ReactElement {
         // Then generate the one-to-one NWC and links for the user
         const links: string[] = [];
         for (let i = 0; i < (numberOfLinks ?? 0); i++) {
-          const { encryptedUrl, secret: linkSecret } = encryptNWCUrl(newNWCUrl);
+          const { encryptedUrl, secret: linkSecret } = await encryptNWCUrl(newNWCUrl);
 
           const createdNwc = await axios.post('/api/nwc', {
             url: encryptedUrl,

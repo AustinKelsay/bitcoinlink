@@ -7,7 +7,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { v4 as uuidv4 } from 'uuid';
 import useSubscribeToEvents from '@/hooks/useSubscribeToEvents';
 import { generatePrivateKey, getPublicKey } from 'nostr-tools';
-import crypto from 'crypto';
+import { encryptNWCUrl } from '@/utils/crypto-browser';
 import axios from 'axios';
 import type { Event } from 'nostr-tools';
 
@@ -20,11 +20,6 @@ interface MutinyModalProps {
   setGeneratedLinks: (links: string[]) => void;
   generatingLinks: boolean;
   setGeneratingLinks: (generating: boolean) => void;
-}
-
-interface EncryptedNWCResult {
-  encryptedUrl: string;
-  secret: string;
 }
 
 interface OneToManyNWCResult {
@@ -53,19 +48,11 @@ const MutinyModal: React.FC<MutinyModalProps> = ({
   const { showToast } = useToast();
   const { subscribeToEvents, fetchedEvents } = useSubscribeToEvents();
 
-  const encryptNWCUrl = (url: string): EncryptedNWCResult => {
-    const newSecret = crypto.randomBytes(32).toString('hex');
-    setSecret(newSecret);
-    const cipher = crypto.createCipher('aes-256-cbc', newSecret);
-    let encryptedUrl = cipher.update(url, 'utf8', 'hex');
-    encryptedUrl += cipher.final('hex');
-    return { encryptedUrl, secret: newSecret };
-  };
-
   const generateOneToManyNWC = async (
     newNWCUrl: string
   ): Promise<OneToManyNWCResult | undefined> => {
-    const { encryptedUrl, secret: newSecret } = encryptNWCUrl(newNWCUrl);
+    const { encryptedUrl, secret: newSecret } = await encryptNWCUrl(newNWCUrl);
+    setSecret(newSecret);
 
     const yearFromNow = new Date();
     yearFromNow.setFullYear(yearFromNow.getFullYear() + 1);
@@ -96,7 +83,7 @@ const MutinyModal: React.FC<MutinyModalProps> = ({
       // Then generate the one-to-one NWC and links for the user
       const links: string[] = [];
       for (let i = 0; i < numberOfLinks; i++) {
-        const { encryptedUrl, secret: linkSecret } = encryptNWCUrl(newNWCUrl);
+        const { encryptedUrl, secret: linkSecret } = await encryptNWCUrl(newNWCUrl);
 
         const amount = numberOfLinks * satsPerLink;
         const yearFromNow = new Date();
@@ -181,7 +168,11 @@ const MutinyModal: React.FC<MutinyModalProps> = ({
     const privKey = Buffer.from(sk).toString('hex');
     setAppPrivKey(privKey);
     const encodedRelayUrl = encodeURIComponent('wss://nostr.mutinywallet.com/');
-    const newSecret = crypto.randomBytes(16).toString('hex');
+    const randomBytes = new Uint8Array(16);
+    window.crypto.getRandomValues(randomBytes);
+    const newSecret = Array.from(randomBytes)
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
     setSecret(newSecret);
     const requiredCommands = 'pay_invoice';
     const budget = `${numberOfLinks * satsPerLink}/year`;

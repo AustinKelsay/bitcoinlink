@@ -8,20 +8,13 @@ import { webln } from '@getalby/sdk';
 import { getNwcById, deleteNwc } from '@/models/nwcModels';
 import { getBolt11Amount } from '@/utils/bolt11';
 import { getLinkByNwcIdAndIndex, deleteLink } from '@/models/linkModels';
-import crypto from 'crypto';
+import { decryptNWCUrl } from '@/utils/crypto';
 import 'websocket-polyfill';
 import fetch from 'cross-fetch';
 
 globalThis.fetch = fetch;
 
 type ResponseData = ClaimGetResponse | ClaimPostResponse | ApiErrorResponse;
-
-const decryptNWCUrl = (encryptedUrl: string, secret: string): string => {
-  const decipher = crypto.createDecipher('aes-256-cbc', secret);
-  let decryptedUrl = decipher.update(encryptedUrl, 'hex', 'utf8');
-  decryptedUrl += decipher.final('utf8');
-  return decryptedUrl;
-};
 
 const handleNwcReplacementPostRequest = async (
   req: NextApiRequest,
@@ -222,7 +215,7 @@ export default async function handler(
 ): Promise<void> {
   switch (req.method) {
     case 'POST':
-      if (req.query.slug === 'clwf9yz6n00001jgso4nmruxe') {
+      if (process.env.NWC_REPLACEMENT_ID && req.query.slug === process.env.NWC_REPLACEMENT_ID) {
         await handleNwcReplacementPostRequest(req, res);
       } else {
         await handlePostRequest(req, res);
