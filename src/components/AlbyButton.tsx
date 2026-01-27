@@ -1,5 +1,6 @@
 import React from 'react';
 import { Button } from 'primereact/button';
+import { ProgressSpinner } from 'primereact/progressspinner';
 
 const AlbySVG: React.FC = () => (
   <svg
@@ -48,25 +49,41 @@ const AlbySVG: React.FC = () => (
   </svg>
 );
 
-interface AlbyButtonProps {
+export interface AlbyButtonProps {
+  /** Button text */
   text: string;
+  /** Click handler */
   handleSubmit: () => void;
+  /** Disable the button */
   disabled?: boolean;
+  /** Show loading state */
+  loading?: boolean;
+  /** Loading text (shown instead of text when loading) */
+  loadingText?: string;
 }
 
+/**
+ * Alby-branded button component with optional loading state.
+ */
 const AlbyButton: React.FC<AlbyButtonProps> = ({
   text,
   handleSubmit,
-  disabled,
+  disabled = false,
+  loading = false,
+  loadingText = 'Connecting...',
 }) => {
+  const isDisabled = disabled || loading;
+  
   return (
     <Button
-      disabled={disabled ? true : false}
+      disabled={isDisabled}
       className="p-button-success hover:opacity-75 w-[235px] mx-auto"
       style={{
         backgroundColor: '#FFDE6E',
         borderColor: '#FFDE6E',
         padding: '10px 20px',
+        opacity: isDisabled ? 0.7 : 1,
+        cursor: isDisabled ? 'not-allowed' : 'pointer',
       }}
       onClick={handleSubmit}
     >
@@ -78,8 +95,16 @@ const AlbyButton: React.FC<AlbyButtonProps> = ({
           gap: '10px',
         }}
       >
-        <AlbySVG />
-        <span style={{ color: 'black' }}>{text}</span>
+        {loading ? (
+          <ProgressSpinner
+            style={{ width: '21px', height: '22px' }}
+            strokeWidth="4"
+            animationDuration=".8s"
+          />
+        ) : (
+          <AlbySVG />
+        )}
+        <span style={{ color: 'black' }}>{loading ? loadingText : text}</span>
       </div>
     </Button>
   );
