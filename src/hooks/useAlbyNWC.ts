@@ -207,7 +207,8 @@ export function useAlbyNWC(): UseAlbyNWCReturn {
       setConnectionState('error');
       
       // Log for debugging but don't expose internals
-      console.error('[useAlbyNWC] Authorization failed:', albyError.type, e);
+      // Log for debugging but don't expose raw error (may contain NWC URLs)
+      console.error('[useAlbyNWC] Authorization failed:', albyError.type, albyError.message);
       
       return null;
     }

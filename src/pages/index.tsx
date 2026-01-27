@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { InputNumber, InputNumberValueChangeEvent } from 'primereact/inputnumber';
 import { ProgressSpinner } from 'primereact/progressspinner';
 import AlbyButton from '@/components/AlbyButton';
@@ -41,6 +41,26 @@ export default function Home(): React.ReactElement {
     reset: resetAlby,
   } = useAlbyNWC();
 
+  // Handle Alby errors via useEffect to avoid stale state issues
+  useEffect(() => {
+    if (!albyError) return;
+    
+    switch (albyError.type) {
+      case 'user_cancelled':
+        showToast('info', 'Cancelled', 'Authorization was cancelled. You can try again when ready.');
+        break;
+      case 'connection_failed':
+        showToast('error', 'Connection Failed', 'Could not connect to Alby. Please check your internet connection and try again.');
+        break;
+      case 'timeout':
+        showToast('warn', 'Timeout', 'Authorization timed out. Please try again.');
+        break;
+      default:
+        showToast('error', 'Error', albyError.message || 'An unexpected error occurred. Please try again.');
+    }
+    resetAlby();
+  }, [albyError, showToast, resetAlby]);
+
   /**
    * Validate the form inputs for link generation.
    */
@@ -78,7 +98,8 @@ export default function Home(): React.ReactElement {
       setLinkModalVisible(true);
       showToast('success', 'Links Created', 'The links have been created successfully.');
     } catch (error) {
-      console.error('Error generating links:', error);
+      // Don't log raw error - may contain NWC credentials
+      console.error('Error generating links (details omitted to avoid leaking NWC credentials)');
       showToast(
         'error',
         'Error Creating Links',
@@ -114,41 +135,9 @@ export default function Home(): React.ReactElement {
       await handleGenerateLinks(nwcUrl, linkCount, satsAmount);
       // Reset Alby state for next use
       resetAlby();
-    } else if (albyError) {
-      // Handle specific error types
-      switch (albyError.type) {
-        case 'user_cancelled':
-          showToast(
-            'info',
-            'Cancelled',
-            'Authorization was cancelled. You can try again when ready.'
-          );
-          break;
-        case 'connection_failed':
-          showToast(
-            'error',
-            'Connection Failed',
-            'Could not connect to Alby. Please check your internet connection and try again.'
-          );
-          break;
-        case 'timeout':
-          showToast(
-            'warn',
-            'Timeout',
-            'Authorization timed out. Please try again.'
-          );
-          break;
-        default:
-          showToast(
-            'error',
-            'Error',
-            albyError.message || 'An unexpected error occurred. Please try again.'
-          );
-      }
-      // Reset for retry
-      resetAlby();
     }
-  }, [validateInputs, showToast, albyAuthorize, albyError, handleGenerateLinks, resetAlby]);
+    // Error handling moved to useEffect to avoid stale state issues
+  }, [validateInputs, showToast, albyAuthorize, handleGenerateLinks, resetAlby]);
 
   /**
    * Open Mutiny modal with validation.
