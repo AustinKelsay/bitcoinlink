@@ -4,7 +4,7 @@
 
 **BitcoinLink** is an open-source, non-custodial Bitcoin payment link service built on Nostr.
 
-- **Website:** https://bitcoinlink.app
+- **Website:** [https://bitcoinlink.app](https://bitcoinlink.app)
 - **Architecture:** Pure Nostr (no database, no backend API)
 - **Tech Stack:** Next.js 14, React 18, TypeScript, Tailwind, snstr
 
@@ -219,6 +219,6 @@ import { nwc } from '@getalby/sdk';
 
 ## Contact / Resources
 
-- **snstr Library:** https://github.com/AustinKelsay/snstr
-- **Nostr Protocol:** https://github.com/nostr-protocol/nips
-- **NWC Spec:** https://nwc.dev
+- **snstr Library:** [https://github.com/AustinKelsay/snstr](https://github.com/AustinKelsay/snstr)
+- **Nostr Protocol:** [https://github.com/nostr-protocol/nips](https://github.com/nostr-protocol/nips)
+- **NWC Spec:** [https://nwc.dev](https://nwc.dev)

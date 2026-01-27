@@ -17,7 +17,8 @@ nostr+walletconnect://{walletPubkey}?relay={relayUrl}&secret={clientSecret}
 
 Example:
 ```text
-nostr+walletconnect://b889ff5b1513b641e2a139f661a661364979c5beee91842f8f0ef42ab558e9d4?relay=wss%3A%2F%2Frelay.damus.io&secret=71a8c14c1407c113601079c4302dab36460f0ccd0ad506f1f2dc73b5100e4f3c
+# NOTE: Values below are fake placeholders for documentation purposes
+nostr+walletconnect://b889ff5b1513b641e2a139f661a661364979c5beee91842f8f0ef42ab558e9d4?relay=wss%3A%2F%2Frelay.damus.io&secret=0000000000000000000000000000000000000000000000000000000000000001
 ```
 
 ## API

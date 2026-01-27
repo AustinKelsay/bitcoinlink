@@ -216,9 +216,11 @@ const links = await generateLinksFromNWC({
 | Property | Type | Description |
 |----------|------|-------------|
 | `nwcUrl` | `string` | The NWC URL to embed in each link |
-| `numberOfLinks` | `number` | Number of links to generate (min: 1) |
-| `satsPerLink` | `number` | Amount in satoshis per link (min: 1) |
+| `numberOfLinks` | `number` | Number of links to generate (min: 1, **must be integer**) |
+| `satsPerLink` | `number` | Amount in satoshis per link (min: 1, **must be integer**) |
 | `relays` | `string[]` | Optional custom relays (uses DEFAULT_RELAYS if not provided) |
+
+> **Note:** `numberOfLinks` and `satsPerLink` must be integers. The function enforces this via `Math.floor()` and throws if values are less than 1 after truncation.
 
 ---
 
