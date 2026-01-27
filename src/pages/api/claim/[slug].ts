@@ -37,7 +37,7 @@ const handleNwcReplacementPostRequest = async (
       return;
     }
 
-    const amountPerLink = nwc.maxAmount / nwc.numLinks;
+    const amountPerLink = Math.floor(nwc.maxAmount / nwc.numLinks);
     const bolt11Amount = getBolt11Amount(invoice);
 
     if (bolt11Amount !== amountPerLink) {
@@ -121,7 +121,7 @@ const handlePostRequest = async (
       return;
     }
 
-    const amountPerLink = nwc.maxAmount / nwc.numLinks;
+    const amountPerLink = Math.floor(nwc.maxAmount / nwc.numLinks);
     const bolt11Amount = getBolt11Amount(invoice);
 
     if (bolt11Amount !== amountPerLink) {
@@ -198,7 +198,7 @@ const handleGetRequest = async (
       return;
     }
 
-    const amountPerLink = nwc.maxAmount / nwc.numLinks;
+    const amountPerLink = Math.floor(nwc.maxAmount / nwc.numLinks);
     const link = await getLinkByNwcIdAndIndex(nwc.id, linkIndex);
 
     if (!link || !link.id) {
