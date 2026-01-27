@@ -89,7 +89,12 @@ export function useAlbyNWC(): UseAlbyNWCReturn {
    */
   const cleanup = useCallback(() => {
     if (clientRef.current) {
-      // NWCClient doesn't have explicit close, but clear reference
+      // Close the NWC client to release relay connections
+      try {
+        clientRef.current.close();
+      } catch {
+        // Ignore errors during cleanup
+      }
       clientRef.current = null;
     }
   }, []);
