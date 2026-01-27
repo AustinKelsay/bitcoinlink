@@ -1,11 +1,11 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { InputNumber, InputNumberValueChangeEvent } from 'primereact/inputnumber';
 import { ProgressSpinner } from 'primereact/progressspinner';
 import AlbyButton from '@/components/AlbyButton';
+import AlbyModal from '@/components/AlbyModal';
 import MutinyButton from '@/components/mutiny/MutinyButton';
 import MutinyModal from '@/components/mutiny/MutinyModal';
 import { useToast } from '@/hooks/useToast';
-import { useAlbyNWC } from '@/hooks/useAlbyNWC';
 import 'primeicons/primeicons.css';
 import LinkModal from '@/components/LinkModal';
 import { generateLinksFromNWC } from '@/lib/nostr';
@@ -27,6 +27,7 @@ export default function Home(): React.ReactElement {
   // Modal visibility
   const [linkModalVisible, setLinkModalVisible] = useState(false);
   const [mutinyModalVisible, setMutinyModalVisible] = useState(false);
+  const [albyModalVisible, setAlbyModalVisible] = useState(false);
   
   // Link generation state
   const [generatedLinks, setGeneratedLinks] = useState<string[]>([]);
@@ -34,32 +35,6 @@ export default function Home(): React.ReactElement {
 
   // Hooks
   const { showToast } = useToast();
-  const { 
-    connectionState: albyConnectionState, 
-    authorize: albyAuthorize, 
-    error: albyError,
-    reset: resetAlby,
-  } = useAlbyNWC();
-
-  // Handle Alby errors via useEffect to avoid stale state issues
-  useEffect(() => {
-    if (!albyError) return;
-    
-    switch (albyError.type) {
-      case 'user_cancelled':
-        showToast('info', 'Cancelled', 'Authorization was cancelled. You can try again when ready.');
-        break;
-      case 'connection_failed':
-        showToast('error', 'Connection Failed', 'Could not connect to Alby. Please check your internet connection and try again.');
-        break;
-      case 'timeout':
-        showToast('warn', 'Timeout', 'Authorization timed out. Please try again.');
-        break;
-      default:
-        showToast('error', 'Error', albyError.message || 'An unexpected error occurred. Please try again.');
-    }
-    resetAlby();
-  }, [albyError, showToast, resetAlby]);
 
   /**
    * Validate the form inputs for link generation.
@@ -78,20 +53,21 @@ export default function Home(): React.ReactElement {
 
   /**
    * Generate links from an NWC URL.
-   * Shared logic used after successful wallet authorization.
+   * Called by both AlbyModal and MutinyModal after obtaining an NWC URL.
    */
-  const handleGenerateLinks = useCallback(async (
-    nwcUrl: string,
-    linkCount: number,
-    satsAmount: number
-  ): Promise<void> => {
+  const handleGenerateLinks = useCallback(async (nwcUrl: string): Promise<void> => {
+    if (!numberOfLinks || !satsPerLink) {
+      showToast('error', 'Error', 'Invalid link configuration.');
+      return;
+    }
+    
     setGeneratingLinks(true);
     
     try {
       const links = await generateLinksFromNWC({
         nwcUrl,
-        numberOfLinks: linkCount,
-        satsPerLink: satsAmount,
+        numberOfLinks,
+        satsPerLink,
       });
       
       setGeneratedLinks(links);
@@ -108,36 +84,17 @@ export default function Home(): React.ReactElement {
     } finally {
       setGeneratingLinks(false);
     }
-  }, [showToast]);
+  }, [numberOfLinks, satsPerLink, showToast]);
 
   /**
-   * Handle Alby authorization and link generation flow.
+   * Open Alby modal with validation.
    */
-  const handleAlbySubmit = useCallback(async (): Promise<void> => {
-    // Validate inputs first
+  const handleAlbyClick = useCallback((): void => {
     const validation = validateInputs();
-    if (!validation) return;
-    
-    const { numberOfLinks: linkCount, satsPerLink: satsAmount } = validation;
-    const totalAmount = linkCount * satsAmount;
-
-    // Show info that we're opening Alby
-    showToast('info', 'Alby', 'Opening Alby authorization...');
-
-    // Start Alby authorization
-    const nwcUrl = await albyAuthorize({
-      appName: 'bitcoinlink.app',
-      maxAmount: totalAmount,
-    });
-
-    if (nwcUrl) {
-      // Authorization successful - generate links
-      await handleGenerateLinks(nwcUrl, linkCount, satsAmount);
-      // Reset Alby state for next use
-      resetAlby();
+    if (validation) {
+      setAlbyModalVisible(true);
     }
-    // Error handling moved to useEffect to avoid stale state issues
-  }, [validateInputs, showToast, albyAuthorize, handleGenerateLinks, resetAlby]);
+  }, [validateInputs]);
 
   /**
    * Open Mutiny modal with validation.
@@ -150,15 +107,7 @@ export default function Home(): React.ReactElement {
   }, [validateInputs]);
 
   // Determine if we're in any loading state
-  const isAlbyConnecting = albyConnectionState === 'initializing' || albyConnectionState === 'authorizing';
-  const isLoading = generatingLinks || isAlbyConnecting;
-
-  // Get appropriate loading text for Alby button
-  const getAlbyLoadingText = (): string => {
-    if (albyConnectionState === 'initializing') return 'Initializing...';
-    if (albyConnectionState === 'authorizing') return 'Waiting for approval...';
-    return 'Connecting...';
-  };
+  const isLoading = generatingLinks;
 
   return (
     <main className={'flex flex-col items-center justify-evenly p-8'}>
@@ -209,10 +158,8 @@ export default function Home(): React.ReactElement {
           <div className="flex flex-col justify-between h-[12vh] my-8">
             <AlbyButton 
               text="Generate with Alby" 
-              handleSubmit={handleAlbySubmit}
-              loading={isAlbyConnecting}
-              loadingText={getAlbyLoadingText()}
-              disabled={generatingLinks}
+              handleSubmit={handleAlbyClick}
+              disabled={isLoading}
             />
             <MutinyButton
               text="Generate with Mutiny"
@@ -223,6 +170,16 @@ export default function Home(): React.ReactElement {
         </div>
       )}
       
+      {albyModalVisible && (
+        <AlbyModal
+          visible={albyModalVisible}
+          onHide={() => setAlbyModalVisible(false)}
+          numberOfLinks={numberOfLinks ?? 0}
+          satsPerLink={satsPerLink ?? 0}
+          onNwcUrlReady={handleGenerateLinks}
+        />
+      )}
+
       {mutinyModalVisible && (
         <MutinyModal
           mutinyModalVisible={mutinyModalVisible}
