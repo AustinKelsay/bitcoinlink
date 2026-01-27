@@ -97,7 +97,7 @@ The encoded data contains:
 git clone https://github.com/AustinKelsay/bitcoinlink.git
 cd bitcoinlink
 
-# Install dependencies (including local snstr)
+# Install dependencies
 npm install
 
 # Start development server

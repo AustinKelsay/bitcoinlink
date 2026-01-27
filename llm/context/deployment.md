@@ -15,11 +15,11 @@ BitcoinLink is a **client-side only** application with no backend requirements. 
 The simplest deployment - just static HTML/JS/CSS files.
 
 ```bash
-# Build static export
+# Build the application
 npm run build
 
-# The output is in .next/ or out/ depending on config
-# Deploy to any static host
+# Output is in .next/ directory
+# Deploy to any static-capable host
 ```
 
 **Works with:**

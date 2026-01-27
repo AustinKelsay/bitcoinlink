@@ -35,6 +35,9 @@ export async function generateLinksFromNWC(
 ): Promise<string[]> {
   const { nwcUrl, numberOfLinks, satsPerLink, relays } = options;
 
+  if (!nwcUrl || nwcUrl.trim().length === 0) {
+    throw new Error('nwcUrl must be a non-empty string');
+  }
   if (numberOfLinks < 1) {
     throw new Error('numberOfLinks must be at least 1');
   }

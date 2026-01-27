@@ -265,7 +265,7 @@ npm test -- --coverage  # Coverage report
 
 ### Coverage
 
-- **131 tests** across 8 test files
+- **133 tests** across 8 test files
 - Input validation and error handling
 - Edge cases (zero/negative/large values, unicode, special characters)
 - Key validation and security edge cases
