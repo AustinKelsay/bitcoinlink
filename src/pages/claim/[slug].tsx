@@ -61,8 +61,7 @@ export default function ClaimPage(): React.ReactElement {
           setClaimed(res.data.isClaimed);
         })
         .catch((err) => {
-          console.log('errrr', err);
-          if (err?.request?.status === 404) {
+          if (axios.isAxiosError(err) && err.response?.status === 404) {
             setExists(false);
           }
           console.error(err);
