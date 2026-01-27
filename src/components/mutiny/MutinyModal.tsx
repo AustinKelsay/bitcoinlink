@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Dialog } from 'primereact/dialog';
 import { nip04 } from 'nostr-tools';
 import MutinyButton from '@/components/mutiny/MutinyButton';
@@ -48,7 +48,7 @@ const MutinyModal: React.FC<MutinyModalProps> = ({
   const { showToast } = useToast();
   const { subscribeToEvents, fetchedEvents } = useSubscribeToEvents();
 
-  const generateOneToManyNWC = async (
+  const generateOneToManyNWC = useCallback(async (
     newNWCUrl: string
   ): Promise<OneToManyNWCResult | undefined> => {
     const { encryptedUrl, secret: newSecret } = await encryptNWCUrl(newNWCUrl);
@@ -68,9 +68,9 @@ const MutinyModal: React.FC<MutinyModalProps> = ({
     if (createdNwc.status === 201 && createdNwc.data?.id) {
       return { oneToManyNwcId: createdNwc.data.id, oneToManySecret: newSecret };
     }
-  };
+  }, [numberOfLinks, satsPerLink]);
 
-  const generateLinks = async (newNWCUrl: string): Promise<void> => {
+  const generateLinks = useCallback(async (newNWCUrl: string): Promise<void> => {
     if (newNWCUrl) {
       setGeneratingLinks(true);
       // first generate the one-to-many NWC with links for the API
@@ -129,7 +129,7 @@ const MutinyModal: React.FC<MutinyModalProps> = ({
     } else {
       throw new Error('No NWC url returned');
     }
-  };
+  }, [numberOfLinks, satsPerLink, setGeneratingLinks, setGeneratedLinks, setLinkModalVisible, showToast, generateOneToManyNWC]);
 
   useEffect(() => {
     fetchedEvents.forEach(async (event: Event) => {
@@ -158,18 +158,17 @@ const MutinyModal: React.FC<MutinyModalProps> = ({
         }
       }
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchedEvents, secret]);
+  }, [fetchedEvents, secret, appPublicKey, appPrivKey, relayUrl, showToast, generateLinks]);
 
   useEffect(() => {
     const sk = generatePrivateKey();
     const pubKey = getPublicKey(sk);
     setAppPublicKey(pubKey);
-    const privKey = Buffer.from(sk).toString('hex');
-    setAppPrivKey(privKey);
+    setAppPrivKey(sk);
     const encodedRelayUrl = encodeURIComponent('wss://nostr.mutinywallet.com/');
     const randomBytes = new Uint8Array(16);
-    window.crypto.getRandomValues(randomBytes);
+    const crypto = typeof window !== 'undefined' ? window.crypto : globalThis.crypto;
+    crypto.getRandomValues(randomBytes);
     const newSecret = Array.from(randomBytes)
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
@@ -191,8 +190,7 @@ const MutinyModal: React.FC<MutinyModalProps> = ({
         '#d': [pubKey],
       },
     ]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [numberOfLinks, satsPerLink]);
+  }, [numberOfLinks, satsPerLink, subscribeToEvents]);
 
   const handleOpenInBrowser = async (): Promise<void> => {
     if (!mutinySettingsUrl) {
