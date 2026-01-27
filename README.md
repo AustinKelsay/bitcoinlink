@@ -8,7 +8,7 @@ Built on **Nostr** and powered by **Nostr Wallet Connect (NWC)**.
 
 BitcoinLink uses Nostr protocol features to create secure, shareable payment links without any backend database:
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                            Link Creation Flow                                │
 ├─────────────────────────────────────────────────────────────────────────────┤
@@ -183,6 +183,6 @@ MIT License
 
 ## Links
 
-- **Website:** https://bitcoinlink.app
-- **Nostr Wallet Connect:** https://nwc.dev
-- **snstr Library:** https://github.com/AustinKelsay/snstr
+- **Website:** [https://bitcoinlink.app](https://bitcoinlink.app)
+- **Nostr Wallet Connect:** [https://nwc.dev](https://nwc.dev)
+- **snstr Library:** [https://github.com/AustinKelsay/snstr](https://github.com/AustinKelsay/snstr)
