@@ -163,7 +163,7 @@ export default function Home(): React.ReactElement {
               onValueChange={(e: InputNumberValueChangeEvent) =>
                 setNumberOfLinks(e.value ?? null)
               }
-              min={0}
+              min={1}
               max={1000}
             />
           </div>
