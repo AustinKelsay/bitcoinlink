@@ -304,7 +304,7 @@ Decoded (base64url → JSON):
 ```json
 {
   "eventId": "event_id_abc123",
-  "receiverPrivateKey": "receiver_priv_key_def456",
+  "receiverPrivateKey": "<receiver_private_key_hex>",
   "relays": ["wss://relay.damus.io", "wss://nos.lol", ...],
   "amountSats": 1000
 }

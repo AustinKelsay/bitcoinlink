@@ -122,8 +122,8 @@ describe('Claim Flow Integration', () => {
     });
 
     it('should handle minimum and maximum amounts', async () => {
-      // Note: 21M BTC in sats (2.1e15) exceeds Number.MAX_SAFE_INTEGER (9e15),
-      // but we use a smaller realistic value here to avoid precision issues
+      // Note: 21M BTC in sats (2.1e15) is within Number.MAX_SAFE_INTEGER (~9e15),
+      // so JavaScript can safely represent the total Bitcoin supply in satoshis
       const amounts = [1, 2100000000000000]; // 1 sat and 21M BTC in sats
 
       for (const amount of amounts) {

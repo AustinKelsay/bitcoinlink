@@ -237,7 +237,7 @@ Used only for Mutiny wallet authentication via NWA (Nostr Wallet Auth).
 ### Code Example (MutinyModal.tsx)
 
 ```typescript
-import { nip04 } from 'nostr-tools';
+import { nip04Decrypt } from 'snstr';
 
 // Subscribe to NWA response events (kind 33194)
 subscribeToEvents([{
@@ -247,11 +247,11 @@ subscribeToEvents([{
 }]);
 
 // When event received, decrypt using NIP-04
-const decrypted = await nip04.decrypt(appPrivKey, event.pubkey, event.content);
+const decrypted = await nip04Decrypt(appPrivKey, event.pubkey, event.content);
 const { secret } = JSON.parse(decrypted);
 
 // Construct NWC URL from response
-const nwcUri = `nostr+walletconnect://${event.pubkey}?relay=${relayUrl}&pubkey=${appPublicKey}&secret=${appPrivKey}`;
+const nwcUri = `nostr+walletconnect://${event.pubkey}?relay=${relayUrl}&secret=${secret}`;
 ```
 
 ---
