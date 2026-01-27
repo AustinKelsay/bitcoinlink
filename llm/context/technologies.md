@@ -3,17 +3,17 @@
 ## Core Framework
 
 ### Next.js 14.2.3
-- Full-stack React framework
-- Server-side rendering
+- React framework for production
 - File-based routing (Pages Router)
+- Client-side only (no SSR required for this app)
 - Static export capability
 
 ### React 18
 - Frontend UI library
 - Hooks-based architecture
-- Context for state management
+- Context for state management (ToastProvider)
 
-### TypeScript 5.9.3
+### TypeScript 5.x
 - Type-safe development
 - Enhanced IDE support
 - Compile-time error checking
@@ -140,13 +140,14 @@ bitcoinlink
 
 ## What's NOT Used (Removed in Refactor)
 
-The following were removed when migrating to Nostr-only:
+The following were removed when migrating to the Nostr-only architecture:
 - PostgreSQL / any database
 - Prisma ORM
-- API routes for CRUD
+- API routes for CRUD operations
 - Rate limiting (@upstash/ratelimit, @vercel/kv)
 - Server-side middleware
 - axios (replaced with native fetch)
+- Server-side encryption (now handled by NIP-17 gift wrap)
 
 ## Version Compatibility Notes
 

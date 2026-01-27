@@ -128,6 +128,9 @@ The receiver flow is how recipients claim Bitcoin payment links. The recipient p
 ### Step 1: Decode URL and Load Data
 
 ```tsx
+import { decodeLink, decryptBitcoinLink, BitcoinLinkNostrClient } from '@/lib/nostr';
+import { getPublicKey } from 'snstr';
+
 const router = useRouter();
 const { slug } = router.query;  // The base64url encoded string
 
@@ -141,27 +144,32 @@ const fetchLinkData = async (encoded: string) => {
 
   // 2. Create client with relays from the link
   const client = new BitcoinLinkNostrClient(decoded.relays);
-  await client.connect();
 
-  // 3. Check for deletion event (already claimed?)
-  const receiverPubkey = getPublicKey(decoded.receiverPrivateKey);
-  const isDeletion = await client.hasDeletionEvent(decoded.eventId, receiverPubkey);
+  try {
+    await client.connect();
 
-  if (isDeletion) {
-    setClaimed(true);
-    return;
+    // 3. Check for deletion event (already claimed?)
+    const receiverPubkey = getPublicKey(decoded.receiverPrivateKey);
+    const isDeletion = await client.hasDeletionEvent(decoded.eventId, receiverPubkey);
+
+    if (isDeletion) {
+      setClaimed(true);
+      return;
+    }
+
+    // 4. Fetch the gift wrap event
+    const event = await client.fetchEvent(decoded.eventId);
+    if (!event) {
+      setExists(false);
+      return;
+    }
+
+    // 5. Decrypt to get payload
+    const payload = decryptBitcoinLink(event, decoded.receiverPrivateKey);
+    setPayload(payload);  // { type: 'bitcoinlink', nwcUrl, amount }
+  } finally {
+    client.close();
   }
-
-  // 4. Fetch the gift wrap event
-  const event = await client.fetchEvent(decoded.eventId);
-  if (!event) {
-    setExists(false);
-    return;
-  }
-
-  // 5. Decrypt to get payload
-  const payload = decryptBitcoinLink(event, decoded.receiverPrivateKey);
-  setPayload(payload);  // { type, nwcUrl, amount }
 };
 ```
 

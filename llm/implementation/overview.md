@@ -2,7 +2,7 @@
 
 ## Architecture Summary
 
-BitcoinLink is a **client-side only** Next.js application that uses Nostr relays for storage instead of a database.
+BitcoinLink is a **client-side only** Next.js application that uses Nostr relays for data storage instead of a traditional database. All encryption, decryption, and payment operations happen in the browser.
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
@@ -60,6 +60,7 @@ bitcoinlink/
 │   │       ├── client.ts          # Relay connection management
 │   │       ├── gift-wrap.ts       # NIP-17 gift wrap creation/decryption
 │   │       ├── link-encoder.ts    # URL encoding/decoding (base64url)
+│   │       ├── link-generator.ts  # Shared link generation utility
 │   │       ├── nwc-client.ts      # NWC payment execution
 │   │       └── relays.ts          # Default relay configuration
 │   ├── pages/
@@ -115,15 +116,15 @@ bitcoinlink/
 3. Get NWC URL from wallet
          │
          ▼
-4. For each link:
+4. For each link (via generateLinksFromNWC):
    ├── Create payload: { type: 'bitcoinlink', nwcUrl, amount }
-   ├── Generate receiver keypair
-   ├── Gift-wrap payload (NIP-17)
+   ├── Generate sender and receiver keypairs
+   ├── Gift-wrap payload using NIP-17
    ├── Publish event to relays
    └── Create URL: base64url({ eventId, receiverPrivateKey, relays, amountSats })
          │
          ▼
-5. Display links in modal
+5. Display links in LinkModal
 ```
 
 ### Link Claiming
@@ -163,6 +164,7 @@ bitcoinlink/
 | `src/pages/index.tsx` | Link generation UI, wallet connection |
 | `src/pages/claim/[slug].tsx` | Link claiming UI, payment execution |
 | `src/lib/nostr/gift-wrap.ts` | Core encryption/decryption |
+| `src/lib/nostr/link-generator.ts` | Shared link generation logic |
 | `src/lib/nostr/client.ts` | Relay communication |
 | `src/lib/nostr/nwc-client.ts` | Payment execution |
 
@@ -236,19 +238,34 @@ npm test
 ## Key Imports
 
 ```typescript
-// From src/lib/nostr (custom)
+// From src/lib/nostr (custom library)
 import {
+  // Gift wrap
   createBitcoinLink,
   decryptBitcoinLink,
-  BitcoinLinkNostrClient,
+  GIFT_WRAP_KIND,
+  // Link encoding
   encodeLink,
   decodeLink,
   createClaimUrl,
+  createClaimPath,
+  // Link generation
+  generateLinksFromNWC,
+  // Client
+  BitcoinLinkNostrClient,
+  // NWC
   payInvoiceWithNWC,
+  isValidNWCUrl,
+  getRelaysFromNWCUrl,
+  // Config
   DEFAULT_RELAYS,
+  // Types
+  type BitcoinLinkPayload,
+  type EncodedLink,
+  type LinkInfo,
 } from '@/lib/nostr';
 
-// From snstr
+// From snstr (Nostr protocol)
 import {
   createDirectMessage,
   decryptDirectMessage,
@@ -256,9 +273,9 @@ import {
   getPublicKey,
   NostrWalletConnectClient,
   parseNWCURL,
-  GIFT_WRAP_KIND,
+  decryptNIP04,
 } from 'snstr';
 
-// From @getalby/sdk (Alby connection)
+// From @getalby/sdk (Alby wallet connection)
 import { nwc } from '@getalby/sdk';
 ```

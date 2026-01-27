@@ -2,7 +2,7 @@
 
 ## What is BitcoinLink?
 
-BitcoinLink is an open-source, non-custodial payment service that allows users to send Bitcoin via shareable links using the Lightning Network. It uses a **pure Nostr-based architecture** with no backend database.
+BitcoinLink is an open-source, non-custodial payment service that allows users to send Bitcoin via shareable links using the Lightning Network. It uses a **pure Nostr-based architecture** with no backend database—all data is stored as encrypted events on Nostr relays.
 
 **Website:** https://bitcoinlink.app
 
@@ -97,11 +97,11 @@ BitcoinLink stores all data on Nostr relays using encrypted events:
 3. Connects wallet (Alby or Mutiny)
 4. Wallet approves NWC connection with budget
 5. For each link:
-   a. Create payload: { nwcUrl, amount }
-   b. Generate ephemeral receiver keypair
-   c. Gift-wrap payload (NIP-17 encryption)
-   d. Publish event to Nostr relays
-   e. Create URL: eventId + receiverPrivateKey + relays
+   a. Create payload: { type: 'bitcoinlink', nwcUrl, amount }
+   b. Generate ephemeral sender and receiver keypairs
+   c. Gift-wrap payload using NIP-17 encryption
+   d. Publish gift-wrap event to Nostr relays
+   e. Create URL containing: eventId + receiverPrivateKey + relays + amount
 6. Display shareable links to user
 ```
 
@@ -178,9 +178,9 @@ The encoded JSON contains:
 
 | Category | Technology |
 |----------|------------|
-| Framework | Next.js 14, React 18, TypeScript |
-| Nostr | snstr library |
-| UI | Tailwind CSS, PrimeReact |
+| Framework | Next.js 14.2.3, React 18, TypeScript |
+| Nostr | snstr (local), nostr-tools 1.17.0 |
+| UI | Tailwind CSS, PrimeReact, qrcode.react |
 | Bitcoin | @getalby/sdk, light-bolt11-decoder, bech32 |
 
 ## Open Source

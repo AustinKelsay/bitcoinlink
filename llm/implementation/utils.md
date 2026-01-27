@@ -112,7 +112,7 @@ const data = decodeLink('eyJldmVudElkIjo...');
 // Returns: { eventId, receiverPrivateKey, relays, amountSats }
 ```
 
-**createClaimUrl(eventId, receiverPrivateKey, amountSats, relays): string**
+**createClaimUrl(eventId, receiverPrivateKey, amountSats, relays?): string**
 
 Creates a full claim URL.
 
@@ -120,24 +120,55 @@ Creates a full claim URL.
 import { createClaimUrl } from '@/lib/nostr';
 
 const url = createClaimUrl(
-  'abc123',
-  'def456',
-  1000,
-  ['wss://relay.damus.io']
+  'abc123...',        // event ID
+  'def456...',        // receiver private key
+  1000,               // amount in sats
+  ['wss://relay.damus.io', ...]  // optional, defaults to DEFAULT_RELAYS
 );
-// Returns: https://bitcoinlink.app/claim/{encoded}
+// Returns: https://bitcoinlink.app/claim/{base64url_encoded}
 ```
 
-**createClaimPath(eventId, receiverPrivateKey, amountSats, relays): string**
+**createClaimPath(eventId, receiverPrivateKey, amountSats, relays?): string**
 
 Creates a relative claim path (without domain).
 
 ```typescript
 import { createClaimPath } from '@/lib/nostr';
 
-const path = createClaimPath('abc123', 'def456', 1000);
-// Returns: /claim/{encoded}
+const path = createClaimPath('abc123...', 'def456...', 1000);
+// Returns: /claim/{base64url_encoded}
 ```
+
+---
+
+### link-generator.ts
+
+Shared link generation utility used by both the home page and MutinyModal.
+
+**generateLinksFromNWC(options): Promise<string[]>**
+
+Generates multiple Bitcoin Links from an NWC URL.
+
+```typescript
+import { generateLinksFromNWC } from '@/lib/nostr';
+
+const links = await generateLinksFromNWC({
+  nwcUrl: 'nostr+walletconnect://...',
+  numberOfLinks: 5,
+  satsPerLink: 1000,
+  relays: ['wss://relay.damus.io']  // optional
+});
+// Returns: ['https://bitcoinlink.app/claim/...', ...]
+```
+
+**Options:**
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `nwcUrl` | `string` | The NWC URL to embed in each link |
+| `numberOfLinks` | `number` | Number of links to generate (min: 1) |
+| `satsPerLink` | `number` | Amount in satoshis per link (min: 1) |
+| `relays` | `string[]` | Optional custom relays (uses DEFAULT_RELAYS if not provided) |
 
 ---
 

@@ -8,19 +8,19 @@ BitcoinLink uses React components organized by functionality. The component libr
 
 ```
 src/components/
-├── AlbyButton.tsx           # Alby wallet integration button
-├── LinkModal.tsx            # Generated links display modal
-├── Footer.tsx               # Page footer
-├── ImagePreview.jsx         # Image preview component
+├── AlbyButton.tsx              # Alby wallet integration button
+├── LinkModal.tsx               # Generated links display modal
+├── Footer.tsx                  # Page footer
+├── ImagePreview.tsx            # Image preview component
 ├── mutiny/
-│   ├── MutinyButton.tsx     # Mutiny wallet button
-│   ├── MutinyModal.tsx      # Mutiny NWA connection modal
-│   └── MutinyInstructions.tsx # Claiming instructions for Mutiny
+│   ├── MutinyButton.tsx        # Mutiny wallet button
+│   ├── MutinyModal.tsx         # Mutiny NWA connection modal (sender flow)
+│   └── MutinyInstructions.tsx  # Claiming instructions (receiver flow)
 ├── strike/
-│   ├── StrikeButton.tsx     # Strike wallet button
-│   └── StrikeInstructions.tsx # Claiming instructions for Strike
+│   ├── StrikeButton.tsx        # Strike wallet button
+│   └── StrikeInstructions.tsx  # Claiming instructions for Strike
 └── cashapp/
-    ├── CashAppButton.tsx    # CashApp button
+    ├── CashAppButton.tsx       # CashApp button
     └── CashAppInstructions.tsx # Claiming instructions for CashApp
 ```
 
@@ -69,12 +69,11 @@ Modal for Mutiny wallet connection via Nostr Wallet Auth (NWA) protocol.
 |------|------|-------------|
 | `mutinyModalVisible` | `boolean` | Controls modal visibility |
 | `setMutinyModalVisible` | `(visible: boolean) => void` | Visibility setter |
-| `satsPerLink` | `number` | Satoshis per link |
 | `numberOfLinks` | `number` | Number of links to generate |
-| `setLinkModalVisible` | `(visible: boolean) => void` | Link modal visibility |
+| `satsPerLink` | `number` | Satoshis per link |
+| `setLinkModalVisible` | `(visible: boolean) => void` | Link modal visibility setter |
 | `setGeneratedLinks` | `(links: string[]) => void` | Generated links setter |
-| `generatingLinks` | `boolean` | Loading state |
-| `setGeneratingLinks` | `(generating: boolean) => void` | Loading setter |
+| `setGeneratingLinks` | `(generating: boolean) => void` | Loading state setter |
 
 **Features:**
 - QR code for NWA URI (mobile scanning)

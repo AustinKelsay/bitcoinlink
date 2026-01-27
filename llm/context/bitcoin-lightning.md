@@ -134,7 +134,8 @@ const endpoint = `https://${domain}/.well-known/lnurlp/${username}`;
 // Fetch callback URL
 const { callback } = await fetch(endpoint).then(r => r.json());
 
-// Get invoice for specific amount
+// Get invoice for specific amount (note: LNURL uses millisatoshis)
+const amountMsats = amountSats * 1000;
 const { pr: invoice } = await fetch(`${callback}?amount=${amountMsats}`)
   .then(r => r.json());
 ```

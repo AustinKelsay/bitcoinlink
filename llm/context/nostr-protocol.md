@@ -56,11 +56,14 @@ Inside the rumor's content:
 
 **Creating a link (src/lib/nostr/gift-wrap.ts):**
 ```typescript
-import { createDirectMessage, generateKeypair } from 'snstr';
+import { createDirectMessage, generateKeypair, GIFT_WRAP_KIND } from 'snstr';
+import type { BitcoinLinkPayload, BitcoinLinkResult } from './types';
 
-export async function createBitcoinLink(payload: BitcoinLinkPayload) {
+export async function createBitcoinLink(
+  payload: BitcoinLinkPayload
+): Promise<BitcoinLinkResult> {
   const receiver = await generateKeypair();  // Private key goes in URL
-  const sender = await generateKeypair();     // Ephemeral, discarded
+  const sender = await generateKeypair();    // Ephemeral, discarded after signing
 
   const message = JSON.stringify(payload);
   const giftWrap = await createDirectMessage(
@@ -80,14 +83,26 @@ export async function createBitcoinLink(payload: BitcoinLinkPayload) {
 **Decrypting a link:**
 ```typescript
 import { decryptDirectMessage, GIFT_WRAP_KIND } from 'snstr';
+import type { NostrEvent } from 'snstr';
+import type { BitcoinLinkPayload } from './types';
 
-export function decryptBitcoinLink(giftWrap: NostrEvent, receiverPrivateKey: string) {
+export function decryptBitcoinLink(
+  giftWrap: NostrEvent,
+  receiverPrivateKey: string
+): BitcoinLinkPayload {
   if (giftWrap.kind !== GIFT_WRAP_KIND) {
-    throw new Error(`Invalid event kind: expected ${GIFT_WRAP_KIND}`);
+    throw new Error(`Invalid event kind: expected ${GIFT_WRAP_KIND}, got ${giftWrap.kind}`);
   }
 
   const rumor = decryptDirectMessage(giftWrap, receiverPrivateKey);
-  return JSON.parse(rumor.content);
+  const payload = JSON.parse(rumor.content);
+  
+  // Validate payload structure
+  if (payload.type !== 'bitcoinlink') {
+    throw new Error(`Invalid payload type: expected 'bitcoinlink'`);
+  }
+  
+  return payload;
 }
 ```
 
@@ -124,13 +139,25 @@ const nwcUrl = newNwc.getNostrWalletConnectUrl();
 ```typescript
 import { NostrWalletConnectClient, parseNWCURL } from 'snstr';
 
-export async function payInvoiceWithNWC(nwcUrl: string, invoice: string) {
+export interface PaymentResult {
+  preimage: string;
+}
+
+export async function payInvoiceWithNWC(
+  nwcUrl: string,
+  invoice: string
+): Promise<PaymentResult> {
   const connectionOptions = parseNWCURL(nwcUrl);
   const client = new NostrWalletConnectClient(connectionOptions);
 
   try {
     await client.init();
     const result = await client.payInvoice(invoice);
+    
+    if (!result || !result.preimage) {
+      throw new Error('Payment failed: no preimage returned');
+    }
+    
     return { preimage: result.preimage };
   } finally {
     await client.disconnect();
@@ -208,26 +235,26 @@ Used only for Mutiny wallet authentication via NWA (Nostr Wallet Auth).
 
 ```
 1. App generates keypair
-2. App creates NWA URI: nostr+walletauth://{pubkey}?relay=...&budget=...
-3. User scans QR / opens Mutiny
+2. App creates NWA URI: nostr+walletauth://{pubkey}?relay=...&secret=...&budget=...
+3. User scans QR or opens Mutiny in browser
 4. Mutiny publishes kind 33194 event with NIP-04 encrypted response
-5. App decrypts to get NWC URL
+5. App decrypts to get NWC connection details
 ```
 
 ### Code Example (MutinyModal.tsx)
 
 ```typescript
-import { decryptNIP04 } from 'snstr';
+import { nip04 } from 'nostr-tools';
 
-// Subscribe to NWA response events
+// Subscribe to NWA response events (kind 33194)
 subscribeToEvents([{
   kinds: [33194],
   since: Math.round(Date.now() / 1000),
   '#d': [appPublicKey]
 }]);
 
-// When event received, decrypt
-const decrypted = decryptNIP04(appPrivKey, event.pubkey, event.content);
+// When event received, decrypt using NIP-04
+const decrypted = await nip04.decrypt(appPrivKey, event.pubkey, event.content);
 const { secret } = JSON.parse(decrypted);
 
 // Construct NWC URL from response

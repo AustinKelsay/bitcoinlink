@@ -60,11 +60,14 @@ NWC URLs are protected using multi-layer encryption via gift wrap.
 **Creating a link:**
 ```typescript
 // src/lib/nostr/gift-wrap.ts
-import { createDirectMessage, generateKeypair } from 'snstr';
+import { createDirectMessage, generateKeypair, GIFT_WRAP_KIND } from 'snstr';
+import type { BitcoinLinkPayload, BitcoinLinkResult } from './types';
 
-export async function createBitcoinLink(payload: BitcoinLinkPayload) {
+export async function createBitcoinLink(
+  payload: BitcoinLinkPayload
+): Promise<BitcoinLinkResult> {
   const receiver = await generateKeypair();  // Private key → URL
-  const sender = await generateKeypair();     // Ephemeral, discarded
+  const sender = await generateKeypair();    // Ephemeral, discarded
 
   const giftWrap = await createDirectMessage(
     JSON.stringify(payload),
@@ -75,15 +78,24 @@ export async function createBitcoinLink(payload: BitcoinLinkPayload) {
   return {
     giftWrap,
     receiverPrivateKey: receiver.privateKey,
+    receiverPublicKey: receiver.publicKey,
   };
 }
 ```
 
 **Decrypting a link:**
 ```typescript
-import { decryptDirectMessage } from 'snstr';
+import { decryptDirectMessage, GIFT_WRAP_KIND } from 'snstr';
+import type { NostrEvent } from 'snstr';
 
-export function decryptBitcoinLink(giftWrap: NostrEvent, receiverPrivateKey: string) {
+export function decryptBitcoinLink(
+  giftWrap: NostrEvent,
+  receiverPrivateKey: string
+): BitcoinLinkPayload {
+  if (giftWrap.kind !== GIFT_WRAP_KIND) {
+    throw new Error(`Invalid event kind: expected ${GIFT_WRAP_KIND}`);
+  }
+  
   const rumor = decryptDirectMessage(giftWrap, receiverPrivateKey);
   return JSON.parse(rumor.content);
 }

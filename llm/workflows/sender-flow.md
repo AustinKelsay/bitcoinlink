@@ -133,22 +133,23 @@ const handleAlbySubmit = async () => {
 
 #### Mutiny Flow (NWA Protocol)
 
-Mutiny uses Nostr Wallet Auth (NWA) - a QR code / deep link flow:
+Mutiny uses Nostr Wallet Auth (NWA)—a QR code / deep link flow:
 
 **Location:** `src/components/mutiny/MutinyModal.tsx`
 
 ```tsx
-import { generateKeypair, decryptNIP04 } from 'snstr';
+import { generateKeypair } from 'snstr';
+import { nip04 } from 'nostr-tools';
 
 // 1. Generate keypair and NWA URI
 const keypair = await generateKeypair();
 const budget = `${numberOfLinks * satsPerLink}/year`;
-const nwa = `nostr+walletauth://${keypair.publicKey}?relay=${relayUrl}&secret=${secret}&required_commands=pay_invoice&budget=${budget}`;
+const nwaUri = `nostr+walletauth://${keypair.publicKey}?relay=${relayUrl}&secret=${keypair.privateKey}&required_commands=pay_invoice&budget=${budget}`;
 
-// 2. Display QR code for mobile
+// 2. Display QR code for mobile scanning
 <QRCodeSVG value={nwaUri} />
 
-// 3. Or open in browser
+// 3. Or open Mutiny in browser popup
 <MutinyButton text="Open Mutiny Wallet" handleSubmit={() => {
   window.open(mutinySettingsUrl, 'mutinyWindow', 'width=600,height=700');
 }} />
@@ -161,15 +162,20 @@ subscribeToEvents([{
 }]);
 
 // 5. Process response when received
-fetchedEvents.forEach((event) => {
-  const decrypted = decryptNIP04(appPrivKey, event.pubkey, event.content);
+fetchedEvents.forEach(async (event) => {
+  // Decrypt NIP-04 encrypted response
+  const decrypted = await nip04.decrypt(appPrivKey, event.pubkey, event.content);
   const { secret } = JSON.parse(decrypted);
 
   // Construct NWC URL from response
   const nwcUri = `nostr+walletconnect://${event.pubkey}?relay=${relayUrl}&pubkey=${appPublicKey}&secret=${appPrivKey}`;
 
-  // Generate links
-  generateLinks(nwcUri);
+  // Generate links using the shared utility
+  const links = await generateLinksFromNWC({
+    nwcUrl: nwcUri,
+    numberOfLinks,
+    satsPerLink,
+  });
 });
 ```
 
@@ -177,7 +183,22 @@ fetchedEvents.forEach((event) => {
 
 ### Step 3: Link Generation
 
-**Location:** `src/pages/index.tsx` and `src/lib/nostr/`
+**Location:** `src/lib/nostr/link-generator.ts` (shared utility)
+
+The link generation logic is encapsulated in a shared function used by both Alby and Mutiny flows:
+
+```tsx
+import { generateLinksFromNWC } from '@/lib/nostr';
+
+// In handleAlbySubmit (index.tsx):
+const links = await generateLinksFromNWC({
+  nwcUrl: newNWCUrl,
+  numberOfLinks: numberOfLinks,
+  satsPerLink: satsPerLink,
+});
+```
+
+**Under the hood** (`src/lib/nostr/link-generator.ts`):
 
 ```tsx
 import {
@@ -187,8 +208,10 @@ import {
 } from '@/lib/nostr';
 import type { BitcoinLinkPayload } from '@/lib/nostr';
 
-const generateLinksFromNWC = async (nwcUrl: string): Promise<string[]> => {
-  const client = new BitcoinLinkNostrClient();
+export async function generateLinksFromNWC(options: GenerateLinksOptions): Promise<string[]> {
+  const { nwcUrl, numberOfLinks, satsPerLink, relays } = options;
+  
+  const client = new BitcoinLinkNostrClient(relays);
   const links: string[] = [];
 
   try {
@@ -222,7 +245,7 @@ const generateLinksFromNWC = async (nwcUrl: string): Promise<string[]> => {
   } finally {
     client.close();
   }
-};
+}
 ```
 
 ---

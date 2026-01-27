@@ -22,7 +22,9 @@ const ToastContext = createContext<{ showToast: Function } | undefined>(undefine
 
 export const useToast = () => {
   const context = useContext(ToastContext);
-  if (!context) throw new Error('useToast must be within ToastProvider');
+  if (!context) {
+    throw new Error('useToast must be used within a ToastProvider');
+  }
   return context;
 };
 
