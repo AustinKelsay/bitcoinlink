@@ -1,15 +1,17 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Dialog } from 'primereact/dialog';
-import { nip04 } from 'nostr-tools';
 import MutinyButton from '@/components/mutiny/MutinyButton';
 import { useToast } from '@/hooks/useToast';
 import { QRCodeSVG } from 'qrcode.react';
-import { v4 as uuidv4 } from 'uuid';
 import useSubscribeToEvents from '@/hooks/useSubscribeToEvents';
-import { generatePrivateKey, getPublicKey } from 'nostr-tools';
-import { encryptNWCUrl } from '@/utils/crypto-browser';
-import axios from 'axios';
 import type { Event } from 'nostr-tools';
+import {
+  createBitcoinLink,
+  BitcoinLinkNostrClient,
+  createClaimUrl,
+} from '@/lib/nostr';
+import type { BitcoinLinkPayload } from '@/lib/nostr';
+import { generateKeypair, decryptNIP04 } from 'snstr';
 
 interface MutinyModalProps {
   mutinyModalVisible: boolean;
@@ -20,11 +22,6 @@ interface MutinyModalProps {
   setGeneratedLinks: (links: string[]) => void;
   generatingLinks: boolean;
   setGeneratingLinks: (generating: boolean) => void;
-}
-
-interface OneToManyNWCResult {
-  oneToManyNwcId: string;
-  oneToManySecret: string;
 }
 
 const MutinyModal: React.FC<MutinyModalProps> = ({
@@ -41,101 +38,72 @@ const MutinyModal: React.FC<MutinyModalProps> = ({
   const [appPrivKey, setAppPrivKey] = useState('');
   const [mutinySettingsUrl, setMutinySettingsUrl] = useState('');
   const [nwaUri, setNwaUri] = useState('');
-  const [, setOneToManyNwcId] = useState('');
-  const [, setOneToManySecret] = useState('');
   const relayUrl = encodeURIComponent('wss://nostr.mutinywallet.com/');
 
   const { showToast } = useToast();
   const { subscribeToEvents, fetchedEvents } = useSubscribeToEvents();
 
-  const generateOneToManyNWC = useCallback(async (
-    newNWCUrl: string
-  ): Promise<OneToManyNWCResult | undefined> => {
-    const { encryptedUrl, secret: newSecret } = await encryptNWCUrl(newNWCUrl);
-    setSecret(newSecret);
+  const generateLinksFromNWC = useCallback(async (nwcUrl: string): Promise<string[]> => {
+    const client = new BitcoinLinkNostrClient();
+    const links: string[] = [];
 
-    const yearFromNow = new Date();
-    yearFromNow.setFullYear(yearFromNow.getFullYear() + 1);
-    const amount = numberOfLinks * satsPerLink;
+    try {
+      await client.connect();
 
-    const createdNwc = await axios.post('/api/nwc', {
-      url: encryptedUrl,
-      maxAmount: amount,
-      numLinks: numberOfLinks,
-      expiresAt: yearFromNow,
-    });
+      for (let i = 0; i < numberOfLinks; i++) {
+        const payload: BitcoinLinkPayload = {
+          type: 'bitcoinlink',
+          nwcUrl,
+          amount: satsPerLink,
+        };
 
-    if (createdNwc.status === 201 && createdNwc.data?.id) {
-      return { oneToManyNwcId: createdNwc.data.id, oneToManySecret: newSecret };
+        const { giftWrap, receiverPrivateKey } = await createBitcoinLink(payload);
+        await client.publish(giftWrap);
+
+        const claimUrl = createClaimUrl(
+          giftWrap.id,
+          receiverPrivateKey,
+          satsPerLink,
+          client.getRelays()
+        );
+        links.push(claimUrl);
+      }
+
+      return links;
+    } finally {
+      client.close();
     }
   }, [numberOfLinks, satsPerLink]);
 
-  const generateLinks = useCallback(async (newNWCUrl: string): Promise<void> => {
-    if (newNWCUrl) {
+  const generateLinks = useCallback(async (nwcUrl: string): Promise<void> => {
+    if (nwcUrl) {
       setGeneratingLinks(true);
-      // first generate the one-to-many NWC with links for the API
-      const result = await generateOneToManyNWC(newNWCUrl);
-      if (result) {
-        setOneToManyNwcId(result.oneToManyNwcId);
-        setOneToManySecret(result.oneToManySecret);
+
+      try {
+        const links = await generateLinksFromNWC(nwcUrl);
+        setGeneratedLinks(links);
+        setLinkModalVisible(true);
+        showToast('success', 'Links Created', 'The links have been created successfully.');
+      } catch (error) {
+        console.error('Error generating links:', error);
+        showToast(
+          'error',
+          'Error Creating Links',
+          'An error occurred while creating the links. Please try again.'
+        );
+      } finally {
+        setGeneratingLinks(false);
       }
-
-      // Then generate the one-to-one NWC and links for the user
-      const links: string[] = [];
-      for (let i = 0; i < numberOfLinks; i++) {
-        const { encryptedUrl, secret: linkSecret } = await encryptNWCUrl(newNWCUrl);
-
-        const amount = numberOfLinks * satsPerLink;
-        const yearFromNow = new Date();
-        yearFromNow.setFullYear(yearFromNow.getFullYear() + 1);
-
-        const createdNwc = await axios.post('/api/nwc', {
-          url: encryptedUrl,
-          maxAmount: amount / numberOfLinks,
-          numLinks: 1,
-          expiresAt: yearFromNow,
-        });
-
-        if (createdNwc.status === 201 && createdNwc.data?.id) {
-          const linkIndex = uuidv4();
-          const link = `bitcoinlink.app/claim/${createdNwc.data?.id}?secret=${linkSecret}&linkIndex=${linkIndex}`;
-          links.push(link);
-          const createdLink = await axios.post('/api/links', {
-            nwcId: createdNwc.data.id,
-            linkIndex: linkIndex,
-          });
-
-          if (createdLink.status === 201) {
-            continue;
-          } else {
-            showToast(
-              'error',
-              'Error Creating Link',
-              'An error occurred while creating a link. Please try again.'
-            );
-          }
-        } else {
-          showToast(
-            'error',
-            'Error Creating NWC',
-            'An error occurred while creating the NWC. Please try again.'
-          );
-        }
-      }
-      setGeneratedLinks(links);
-      setGeneratingLinks(false);
-      setLinkModalVisible(true);
-      showToast('success', 'Links Created', 'The links have been created successfully.');
     } else {
       throw new Error('No NWC url returned');
     }
-  }, [numberOfLinks, satsPerLink, setGeneratingLinks, setGeneratedLinks, setLinkModalVisible, showToast, generateOneToManyNWC]);
+  }, [setGeneratingLinks, setGeneratedLinks, setLinkModalVisible, showToast, generateLinksFromNWC]);
 
   useEffect(() => {
     fetchedEvents.forEach(async (event: Event) => {
       if (event.tags[0][1] === appPublicKey) {
         try {
-          const decrypted = await nip04.decrypt(
+          const decrypted = decryptNIP04(
             appPrivKey,
             event.pubkey,
             event.content
@@ -161,35 +129,39 @@ const MutinyModal: React.FC<MutinyModalProps> = ({
   }, [fetchedEvents, secret, appPublicKey, appPrivKey, relayUrl, showToast, generateLinks]);
 
   useEffect(() => {
-    const sk = generatePrivateKey();
-    const pubKey = getPublicKey(sk);
-    setAppPublicKey(pubKey);
-    setAppPrivKey(sk);
-    const encodedRelayUrl = encodeURIComponent('wss://nostr.mutinywallet.com/');
-    const randomBytes = new Uint8Array(16);
-    const crypto = typeof window !== 'undefined' ? window.crypto : globalThis.crypto;
-    crypto.getRandomValues(randomBytes);
-    const newSecret = Array.from(randomBytes)
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
-    setSecret(newSecret);
-    const requiredCommands = 'pay_invoice';
-    const budget = `${numberOfLinks * satsPerLink}/year`;
-    const identity =
-      '8172b9205247ddfe99b783320782d0312fa305a199fb2be8a3e6563e20b4f0e2';
-    const nwa = `nostr+walletauth://${pubKey}?relay=${encodedRelayUrl}&secret=${newSecret}&required_commands=${requiredCommands}&budget=${budget}&identity=${identity}`;
-    const encodedNwaUri = encodeURIComponent(nwa);
-    setNwaUri(nwa);
-    const settingsUrl = `https://app.mutinywallet.com/settings/connections?nwa=${encodedNwaUri}`;
-    setMutinySettingsUrl(settingsUrl);
+    const initKeypair = async () => {
+      const keypair = await generateKeypair();
+      setAppPublicKey(keypair.publicKey);
+      setAppPrivKey(keypair.privateKey);
 
-    subscribeToEvents([
-      {
-        kinds: [33194],
-        since: Math.round(Date.now() / 1000),
-        '#d': [pubKey],
-      },
-    ]);
+      const encodedRelayUrl = encodeURIComponent('wss://nostr.mutinywallet.com/');
+      const randomBytes = new Uint8Array(16);
+      const crypto = typeof window !== 'undefined' ? window.crypto : globalThis.crypto;
+      crypto.getRandomValues(randomBytes);
+      const newSecret = Array.from(randomBytes)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+      setSecret(newSecret);
+      const requiredCommands = 'pay_invoice';
+      const budget = `${numberOfLinks * satsPerLink}/year`;
+      const identity =
+        '8172b9205247ddfe99b783320782d0312fa305a199fb2be8a3e6563e20b4f0e2';
+      const nwa = `nostr+walletauth://${keypair.publicKey}?relay=${encodedRelayUrl}&secret=${newSecret}&required_commands=${requiredCommands}&budget=${budget}&identity=${identity}`;
+      const encodedNwaUri = encodeURIComponent(nwa);
+      setNwaUri(nwa);
+      const settingsUrl = `https://app.mutinywallet.com/settings/connections?nwa=${encodedNwaUri}`;
+      setMutinySettingsUrl(settingsUrl);
+
+      subscribeToEvents([
+        {
+          kinds: [33194],
+          since: Math.round(Date.now() / 1000),
+          '#d': [keypair.publicKey],
+        },
+      ]);
+    };
+
+    initKeypair();
   }, [numberOfLinks, satsPerLink, subscribeToEvents]);
 
   const handleOpenInBrowser = async (): Promise<void> => {

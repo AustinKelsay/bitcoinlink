@@ -1,5 +1,4 @@
-import React, { useState, useEffect, FormEvent } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect, FormEvent, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { bech32 } from 'bech32';
 import StrikeInstructions from '@/components/strike/StrikeInstructions';
@@ -15,32 +14,22 @@ import { Button } from 'primereact/button';
 import { ProgressSpinner } from 'primereact/progressspinner';
 import { useToast } from '@/hooks/useToast';
 import 'primeicons/primeicons.css';
-
-interface LinkInfo {
-  amount?: number;
-  isClaimed?: boolean;
-}
-
-interface ParsedInput {
-  type: 'lnurl' | 'invoice' | 'address';
-  data: string;
-}
-
-interface WebLN {
-  enable: () => Promise<void>;
-  makeInvoice: (args: { amount: number; comment: string }) => Promise<{ paymentRequest: string }>;
-}
-
-declare global {
-  interface Window {
-    webln?: WebLN;
-  }
-}
+import {
+  decodeLink,
+  decryptBitcoinLink,
+  BitcoinLinkNostrClient,
+  payInvoiceWithNWC,
+} from '@/lib/nostr';
+import type { EncodedLink, LinkInfo, ParsedInput, BitcoinLinkPayload } from '@/lib/nostr';
+import { getPublicKey } from 'snstr';
 
 export default function ClaimPage(): React.ReactElement {
-  const [linkInfo, setLinkInfo] = useState<LinkInfo>({});
+  const [linkInfo, setLinkInfo] = useState<LinkInfo | null>(null);
+  const [linkData, setLinkData] = useState<EncodedLink | null>(null);
+  const [payload, setPayload] = useState<BitcoinLinkPayload | null>(null);
   const [claimed, setClaimed] = useState(false);
   const [exists, setExists] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [input, setInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isStrikeVisible, setIsStrikeVisible] = useState(false);
@@ -48,36 +37,68 @@ export default function ClaimPage(): React.ReactElement {
   const [isMutinyVisible, setIsMutinyVisible] = useState(false);
   const router = useRouter();
 
-  const { slug, linkIndex, secret } = router.query;
-
+  const { slug } = router.query;
   const { showToast } = useToast();
 
-  useEffect(() => {
-    const fetchLinkInfo = async (): Promise<void> => {
-      axios
-        .get(`/api/claim/${slug}?linkIndex=${linkIndex}`)
-        .then((res) => {
-          setLinkInfo(res.data);
-          setClaimed(res.data.isClaimed);
-        })
-        .catch((err) => {
-          if (axios.isAxiosError(err) && err.response?.status === 404) {
-            setExists(false);
-          }
-          console.error(err);
-        });
-    };
+  const fetchLinkData = useCallback(async (encoded: string) => {
+    try {
+      // Decode the link URL
+      const decoded = decodeLink(encoded);
+      setLinkData(decoded);
+      setLinkInfo({ amount: decoded.amountSats, isClaimed: false });
 
-    if (slug && linkIndex) {
-      fetchLinkInfo();
+      // Create client with the relays from the link
+      const client = new BitcoinLinkNostrClient(decoded.relays);
+
+      try {
+        await client.connect();
+
+        // Check if a deletion event exists (link already claimed)
+        const receiverPubkey = getPublicKey(decoded.receiverPrivateKey);
+        const isDeletion = await client.hasDeletionEvent(decoded.eventId, receiverPubkey);
+
+        if (isDeletion) {
+          setClaimed(true);
+          setLinkInfo((prev) => prev ? { ...prev, isClaimed: true } : null);
+          setLoading(false);
+          return;
+        }
+
+        // Fetch the gift wrap event
+        const event = await client.fetchEvent(decoded.eventId);
+
+        if (!event) {
+          setExists(false);
+          setLoading(false);
+          return;
+        }
+
+        // Decrypt the payload
+        const decryptedPayload = decryptBitcoinLink(event, decoded.receiverPrivateKey);
+        setPayload(decryptedPayload);
+        setLinkInfo({ amount: decryptedPayload.amount, isClaimed: false });
+      } finally {
+        client.close();
+      }
+
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching link data:', error);
+      setExists(false);
+      setLoading(false);
     }
-  }, [slug, linkIndex]);
+  }, []);
+
+  useEffect(() => {
+    if (slug && typeof slug === 'string') {
+      fetchLinkData(slug);
+    }
+  }, [slug, fetchLinkData]);
 
   const decodeLnurl = (lnurl: string, name?: string): string | undefined => {
     try {
       const { words: dataPart } = bech32.decode(lnurl, 2000);
       const requestByteArray = bech32.fromWords(dataPart);
-
       const decoded = new TextDecoder().decode(Uint8Array.from(requestByteArray));
       return decoded;
     } catch (error) {
@@ -100,13 +121,11 @@ export default function ClaimPage(): React.ReactElement {
         showToast('warn', 'Invalid LNURL', 'This is not a valid LNURL.');
         return false;
       } else {
-        console.log('Decoded LNURL:', decoded);
         return { type: 'lnurl', data: decoded };
       }
     } else if (inputValue.toLowerCase().startsWith('lnbc')) {
       try {
         const result = validateBolt11(inputValue);
-        console.log('Valid invoice:', result, inputValue);
         if (!result.valid) {
           showToast('warn', 'Invalid Invoice', result.reason || 'This is not a valid invoice.');
           return false;
@@ -139,17 +158,14 @@ export default function ClaimPage(): React.ReactElement {
     callback: string;
     amount: number;
   }): Promise<string | undefined> => {
-    const comment = 'Reward';
+    const comment = 'BitcoinLink Reward';
     const encodedComment = encodeURIComponent(comment);
 
     const urlSeparator = callback.includes('?') ? '&' : '?';
     const url = `${callback}${urlSeparator}amount=${amount}&comment=${encodedComment}`;
 
     try {
-      const response = await fetch(url, {
-        method: 'GET',
-      });
-
+      const response = await fetch(url, { method: 'GET' });
       const data = await response.json();
 
       if (data.pr) {
@@ -189,254 +205,183 @@ export default function ClaimPage(): React.ReactElement {
     }
   };
 
+  const payInvoiceAndMarkClaimed = async (invoice: string): Promise<boolean> => {
+    if (!payload || !linkData) {
+      showToast('error', 'Error', 'Link data not available');
+      return false;
+    }
+
+    try {
+      // Pay the invoice using NWC
+      await payInvoiceWithNWC(payload.nwcUrl, invoice);
+
+      // Publish deletion event to mark as claimed
+      const client = new BitcoinLinkNostrClient(linkData.relays);
+      try {
+        await client.connect();
+        await client.publishDeletion(linkData.eventId, linkData.receiverPrivateKey);
+      } finally {
+        client.close();
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Payment error:', error);
+      throw error;
+    }
+  };
+
   const handleSubmit = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
     setIsSubmitting(true);
-    if (slug && linkIndex && secret && linkInfo) {
-      try {
-        if (input) {
-          const validInput = parseLightningAddress(input);
-          if (validInput) {
-            let invoice: string | undefined;
-            if (validInput.type === 'lnurl') {
-              const response = await fetch(validInput.data);
-              const lnurlPayData = await response.json();
 
-              if (lnurlPayData.tag === 'payRequest') {
-                const amount = (linkInfo.amount ?? 0) * 1000;
-                if (
-                  amount >= lnurlPayData.minSendable &&
-                  amount <= lnurlPayData.maxSendable
-                ) {
-                  const invoiceResponse = await fetch(
-                    `${lnurlPayData.callback}?amount=${amount}`
-                  );
-                  const invoiceData = await invoiceResponse.json();
-                  console.log('Invoice data:', invoiceData);
-                  invoice = invoiceData.pr;
-                } else {
-                  console.error('Amount out of range');
-                  setIsSubmitting(false);
-                  showToast(
-                    'error',
-                    'Amount Out of Range',
-                    'The requested amount is not within the acceptable range for this LNURL-pay.'
-                  );
-                  return;
-                }
-              } else {
-                console.error('Invalid LNURL-pay data');
-                setIsSubmitting(false);
-                showToast(
-                  'error',
-                  'Invalid LNURL-pay Data',
-                  'The LNURL-pay data returned from the server is invalid.'
-                );
-                return;
-              }
-            } else if (validInput.type === 'invoice') {
-              invoice = validInput.data;
-            } else if (validInput.type === 'address') {
-              const callback = await getCallback(validInput.data);
-              if (callback) {
-                const amount = (linkInfo?.amount ?? 0) * 1000;
-                invoice = await fetchInvoice({
-                  callback: callback,
-                  amount: amount,
-                });
-              }
-            }
+    if (!linkData || !payload) {
+      setIsSubmitting(false);
+      showToast('error', 'Error', 'Link data not loaded yet.');
+      return;
+    }
 
-            if (invoice) {
-              try {
-                const claimresponse = await axios.post(
-                  `/api/claim/${slug}?linkIndex=${linkIndex}`,
-                  {
-                    invoice: invoice,
-                  },
-                  {
-                    headers: {
-                      authorization: secret as string,
-                    },
-                  }
-                );
+    try {
+      if (!input) {
+        setIsSubmitting(false);
+        showToast('warn', 'Empty Input', 'Please enter a lightning address, invoice, or LNURL.');
+        return;
+      }
 
-                if (claimresponse.status === 200) {
-                  showToast(
-                    'success',
-                    'Payment Sent',
-                    'The payment has been successfully sent.'
-                  );
+      const validInput = parseLightningAddress(input);
+      if (!validInput) {
+        setIsSubmitting(false);
+        return;
+      }
 
-                  showToast(
-                    'success',
-                    'Link Claimed',
-                    'The link has been successfully claimed.'
-                  );
-                  setTimeout(() => {
-                    setIsSubmitting(false);
-                    setClaimed(true);
-                  }, 2000);
-                } else if (
-                  claimresponse.status === 400 &&
-                  claimresponse.data.error === 'Invalid invoice amount'
-                ) {
-                  console.error('Invalid Invoice Amount');
-                  setIsSubmitting(false);
-                  showToast(
-                    'warn',
-                    'Invalid Invoice Amount',
-                    'The invoice amount does not match the expected amount.'
-                  );
-                  return;
-                } else {
-                  console.error('Error sending payment');
-                  setIsSubmitting(false);
-                  showToast(
-                    'error',
-                    'Error Sending Payment',
-                    'An error occurred while sending the payment. Please try again.'
-                  );
-                  return;
-                }
-              } catch (error) {
-                console.error('Error sending payment:', error);
-                setIsSubmitting(false);
-                if (
-                  axios.isAxiosError(error) &&
-                  error.response?.data?.error ===
-                    'Insufficient budget remaining to make payment'
-                ) {
-                  showToast(
-                    'error',
-                    'Insufficient Budget',
-                    'There is not enough budget remaining to make this payment.'
-                  );
-                } else if (
-                  axios.isAxiosError(error) &&
-                  error.response?.status === 400 &&
-                  error.response?.data?.error === 'Invalid invoice amount'
-                ) {
-                  showToast(
-                    'warn',
-                    'Invalid Invoice Amount',
-                    'The invoice amount does not match the expected amount.'
-                  );
-                } else {
-                  showToast(
-                    'error',
-                    'Error Sending Payment',
-                    'An error occurred while sending the payment. Please try again.'
-                  );
-                }
-                return;
-              }
-            } else {
-              console.error('Error fetching invoice');
-              setIsSubmitting(false);
-              showToast(
-                'error',
-                'Error Fetching Invoice',
-                'An error occurred while fetching the invoice. Please try again.'
-              );
-              return;
-            }
+      let invoice: string | undefined;
+
+      if (validInput.type === 'lnurl') {
+        const response = await fetch(validInput.data);
+        const lnurlPayData = await response.json();
+
+        if (lnurlPayData.tag === 'payRequest') {
+          const amount = (linkInfo?.amount ?? 0) * 1000;
+          if (amount >= lnurlPayData.minSendable && amount <= lnurlPayData.maxSendable) {
+            const invoiceResponse = await fetch(
+              `${lnurlPayData.callback}?amount=${amount}`
+            );
+            const invoiceData = await invoiceResponse.json();
+            invoice = invoiceData.pr;
           } else {
-            console.error('Invalid Input');
             setIsSubmitting(false);
-            showToast('warn', 'Invalid Input', 'The provided input is invalid.');
+            showToast(
+              'error',
+              'Amount Out of Range',
+              'The requested amount is not within the acceptable range for this LNURL-pay.'
+            );
             return;
           }
         } else {
           setIsSubmitting(false);
-          showToast('warn', 'Empty Input', 'Please enter a lightning address, invoice, or LNURL.');
+          showToast(
+            'error',
+            'Invalid LNURL-pay Data',
+            'The LNURL-pay data returned from the server is invalid.'
+          );
           return;
         }
-      } catch {
-        console.error('Error sending payment');
+      } else if (validInput.type === 'invoice') {
+        invoice = validInput.data;
+      } else if (validInput.type === 'address') {
+        const callback = await getCallback(validInput.data);
+        if (callback) {
+          const amount = (linkInfo?.amount ?? 0) * 1000;
+          invoice = await fetchInvoice({ callback, amount });
+        }
+      }
+
+      if (!invoice) {
         setIsSubmitting(false);
         showToast(
           'error',
-          'Error Sending Payment',
-          'An error occurred while sending the payment. Please try again.'
+          'Error Fetching Invoice',
+          'An error occurred while fetching the invoice. Please try again.'
         );
         return;
       }
-    } else {
+
+      try {
+        await payInvoiceAndMarkClaimed(invoice);
+
+        showToast('success', 'Payment Sent', 'The payment has been successfully sent.');
+        showToast('success', 'Link Claimed', 'The link has been successfully claimed.');
+
+        setTimeout(() => {
+          setIsSubmitting(false);
+          setClaimed(true);
+        }, 2000);
+      } catch (error) {
+        console.error('Error sending payment:', error);
+        setIsSubmitting(false);
+
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        if (errorMessage.includes('INSUFFICIENT_BALANCE')) {
+          showToast(
+            'error',
+            'Insufficient Budget',
+            'There is not enough budget remaining to make this payment.'
+          );
+        } else {
+          showToast(
+            'error',
+            'Error Sending Payment',
+            'An error occurred while sending the payment. Please try again.'
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Error in claim flow:', error);
       setIsSubmitting(false);
+      showToast(
+        'error',
+        'Error',
+        'An unexpected error occurred. Please try again.'
+      );
     }
   };
 
   const handleAlbySubmit = async (): Promise<void> => {
     try {
       setIsSubmitting(true);
+
+      if (!linkData || !payload) {
+        setIsSubmitting(false);
+        showToast('error', 'Error', 'Link data not loaded yet.');
+        return;
+      }
+
       if (window && window?.webln) {
         await window.webln.enable();
         const result = await window.webln.makeInvoice({
           amount: linkInfo?.amount ?? 0,
-          comment: 'Reward',
+          comment: 'BitcoinLink Reward',
         });
+
         if (result && result?.paymentRequest) {
           try {
-            const claimresponse = await axios.post(
-              `/api/claim/${slug}?linkIndex=${linkIndex}`,
-              {
-                invoice: result.paymentRequest,
-              },
-              {
-                headers: {
-                  authorization: secret as string,
-                },
-              }
-            );
+            await payInvoiceAndMarkClaimed(result.paymentRequest);
 
-            if (claimresponse.status === 200) {
-              showToast(
-                'success',
-                'Payment Sent',
-                'The payment has been successfully sent.'
-              );
+            showToast('success', 'Payment Sent', 'The payment has been successfully sent.');
+            showToast('success', 'Link Claimed', 'The link has been successfully claimed.');
 
-              showToast(
-                'success',
-                'Link Claimed',
-                'The link has been successfully claimed.'
-              );
-              setTimeout(() => {
-                setIsSubmitting(false);
-                setClaimed(true);
-              }, 2000);
-            } else if (
-              claimresponse.status === 400 &&
-              claimresponse.data.error === 'Invalid invoice amount'
-            ) {
-              console.error('Invalid Invoice Amount');
+            setTimeout(() => {
               setIsSubmitting(false);
-              showToast(
-                'warn',
-                'Invalid Invoice Amount',
-                'The invoice amount does not match the expected amount.'
-              );
-              return;
-            } else {
-              console.error('Error sending payment');
-              setIsSubmitting(false);
-              showToast(
-                'error',
-                'Error Sending Payment',
-                'An error occurred while sending the payment. Please try again.'
-              );
-              return;
-            }
-          } catch {
-            console.error('Error sending payment');
+              setClaimed(true);
+            }, 2000);
+          } catch (error) {
+            console.error('Error sending payment:', error);
             setIsSubmitting(false);
             showToast(
               'error',
               'Error Sending Payment',
               'An error occurred while sending the payment. Please try again.'
             );
-            return;
           }
         } else {
           setIsSubmitting(false);
@@ -445,7 +390,6 @@ export default function ClaimPage(): React.ReactElement {
             'Invoice Creation Failed',
             'Failed to create invoice. Please try again.'
           );
-          return;
         }
       } else {
         setIsSubmitting(false);
@@ -454,19 +398,30 @@ export default function ClaimPage(): React.ReactElement {
           'WebLN Not Available',
           'WebLN extension not found. Please install Alby or another WebLN provider.'
         );
-        return;
       }
-    } catch {
-      console.error('Error sending payment');
+    } catch (error) {
+      console.error('Error sending payment:', error);
       setIsSubmitting(false);
       showToast(
         'error',
         'Error Sending Payment',
         'An error occurred while sending the payment. Please try again.'
       );
-      return;
     }
   };
+
+  if (loading) {
+    return (
+      <main className="flex flex-col items-center justify-evenly p-8 sm:w-[80vw] md:w-[70vw] lg:w-[60vw] xl:w-[50vw] mx-auto">
+        <h1 className="text-4xl mb-4">Loading...</h1>
+        <ProgressSpinner
+          style={{ width: '50px', height: '50px' }}
+          strokeWidth="8"
+          animationDuration=".8s"
+        />
+      </main>
+    );
+  }
 
   return (
     <main className="flex flex-col items-center justify-evenly p-8 sm:w-[80vw] md:w-[70vw] lg:w-[60vw] xl:w-[50vw] mx-auto">
@@ -484,9 +439,7 @@ export default function ClaimPage(): React.ReactElement {
           </h1>
           <div className="flex flex-col items-center">
             <p className="text-2xl mt-0">
-              <span
-                className={`${claimed ? 'text-green-500' : 'text-yellow-500'}`}
-              >
+              <span className={`${claimed ? 'text-green-500' : 'text-yellow-500'}`}>
                 {claimed ? 'Claimed' : 'Unclaimed'}
               </span>
             </p>
