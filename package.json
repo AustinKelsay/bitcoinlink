@@ -34,5 +34,8 @@
     "tailwindcss": "^3.4.1",
     "ts-jest": "^29.1.1",
     "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "websocket-polyfill": "1.0.0"
   }
 }
