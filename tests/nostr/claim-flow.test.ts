@@ -263,7 +263,7 @@ describe('Claim Flow Integration', () => {
       expect(linkData.relays).toEqual(manyRelays);
     });
 
-    it('should work with empty relay list', async () => {
+    it('should use DEFAULT_RELAYS when relays parameter is omitted', async () => {
       const payload: BitcoinLinkPayload = {
         type: 'bitcoinlink',
         nwcUrl: testNwcUrl,
@@ -271,12 +271,14 @@ describe('Claim Flow Integration', () => {
       };
 
       const { giftWrap, receiverPrivateKey } = await createBitcoinLink(payload);
-      const url = createClaimUrl(giftWrap.id, receiverPrivateKey, testAmount, []);
+      // Omit relays parameter - should use DEFAULT_RELAYS
+      const url = createClaimUrl(giftWrap.id, receiverPrivateKey, testAmount);
 
       const encodedPart = url.split('/claim/')[1];
       const linkData = decodeLink(encodedPart);
 
-      expect(linkData.relays).toEqual([]);
+      // Should have default relays, not empty
+      expect(linkData.relays.length).toBeGreaterThan(0);
     });
   });
 

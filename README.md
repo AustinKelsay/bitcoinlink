@@ -32,7 +32,7 @@ BitcoinLink uses Nostr protocol features to create secure, shareable payment lin
 
 ## Architecture
 
-**Pure Nostr. No Database. No Backend API.**
+> Pure Nostr. No Database. No Backend API.
 
 | Layer | Technology |
 |-------|------------|

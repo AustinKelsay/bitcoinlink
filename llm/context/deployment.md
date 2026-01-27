@@ -49,7 +49,6 @@ npm start
 ### Prerequisites
 - Node.js 18+
 - npm
-- snstr library at `../snstr` (referenced via `"snstr": "file:../snstr"`)
 
 ### Setup
 
@@ -58,11 +57,7 @@ npm start
 git clone https://github.com/austinkelsay/bitcoinlink.git
 cd bitcoinlink
 
-# Ensure snstr is available at ../snstr
-git clone https://github.com/AustinKelsay/snstr.git ../snstr
-cd ../snstr && npm install && npm run build && cd ../bitcoinlink
-
-# Install and start
+# Install and start (snstr is now on npm as ^0.2.0)
 npm install
 npm run dev
 ```

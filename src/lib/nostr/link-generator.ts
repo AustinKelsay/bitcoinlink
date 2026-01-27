@@ -38,8 +38,17 @@ export async function generateLinksFromNWC(
   if (numberOfLinks < 1) {
     throw new Error('numberOfLinks must be at least 1');
   }
+  if (!Number.isInteger(numberOfLinks)) {
+    throw new Error('numberOfLinks must be an integer');
+  }
   if (satsPerLink < 1) {
     throw new Error('satsPerLink must be at least 1');
+  }
+  if (!Number.isInteger(satsPerLink)) {
+    throw new Error('satsPerLink must be an integer');
+  }
+  if (relays !== undefined && relays.length === 0) {
+    throw new Error('relays array cannot be empty when provided');
   }
 
   const client = new BitcoinLinkNostrClient(relays);

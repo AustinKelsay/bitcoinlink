@@ -4,7 +4,7 @@
 
 BitcoinLink is a **client-side only** Next.js application that uses Nostr relays for data storage instead of a traditional database. All encryption, decryption, and payment operations happen in the browser.
 
-```
+```text
 ┌────────────────────────────────────────────────────────────────┐
 │                    BitcoinLink Architecture                     │
 ├────────────────────────────────────────────────────────────────┤
@@ -45,12 +45,12 @@ BitcoinLink is a **client-side only** Next.js application that uses Nostr relays
 |-------|------------|
 | Framework | Next.js 14.2.3, React 18, TypeScript |
 | UI | Tailwind CSS, PrimeReact |
-| Nostr | snstr (local), nostr-tools 1.17.0 |
+| Nostr | snstr (^0.2.0), nostr-tools 1.17.0 |
 | Bitcoin | @getalby/sdk, light-bolt11-decoder |
 
 ## Directory Structure
 
-```
+```text
 bitcoinlink/
 ├── src/
 │   ├── lib/
@@ -106,7 +106,7 @@ bitcoinlink/
 
 ### Link Creation
 
-```
+```text
 1. User Input (numberOfLinks, satsPerLink)
          │
          ▼
@@ -129,7 +129,7 @@ bitcoinlink/
 
 ### Link Claiming
 
-```
+```text
 1. Decode URL slug (base64url → JSON)
          │
          ▼
@@ -186,7 +186,7 @@ The Nostr-only refactor removed:
 
 ### Encryption Layers
 
-```
+```text
 ┌─────────────────────────────────────┐
 │ Link URL                            │
 │ Contains: eventId, receiverPrivKey  │
@@ -232,7 +232,7 @@ The project has comprehensive test coverage using Jest with ts-jest for TypeScri
 
 ### Test Structure
 
-```
+```text
 tests/
 ├── nostr/
 │   ├── gift-wrap.test.ts       # Gift wrap creation/decryption

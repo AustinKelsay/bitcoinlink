@@ -101,7 +101,8 @@ const MutinyModal: React.FC<MutinyModalProps> = ({
       const decryptedSecret = JSON.parse(decrypted).secret;
 
       if (decryptedSecret === secret) {
-        const nwcUri = `nostr+walletconnect://${event.pubkey}?relay=${ENCODED_MUTINY_RELAY_URL}&pubkey=${appPublicKey}&secret=${appPrivKey}`;
+        // Use the decrypted secret from the NWA response, not our app private key
+        const nwcUri = `nostr+walletconnect://${event.pubkey}?relay=${ENCODED_MUTINY_RELAY_URL}&pubkey=${appPublicKey}&secret=${decryptedSecret}`;
         await handleGenerateLinks(nwcUri);
       }
     } catch (error) {

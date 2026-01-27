@@ -105,17 +105,24 @@ describe('Link Generator', () => {
   });
 
   describe('boundary conditions', () => {
-    it('should handle fractional numberOfLinks (documents current behavior)', () => {
-      // Note: Current implementation uses JS for loop which truncates 1.5 to loop twice (i=0, i=1)
-      // This documents current behavior - validation only checks >= 1
-      const options = {
-        nwcUrl: validNwcUrl,
-        numberOfLinks: 1.5,
-        satsPerLink: 100,
-      };
+    it('should reject fractional numberOfLinks', async () => {
+      await expect(
+        generateLinksFromNWC({
+          nwcUrl: validNwcUrl,
+          numberOfLinks: 1.5,
+          satsPerLink: 100,
+        })
+      ).rejects.toThrow('numberOfLinks must be an integer');
+    });
 
-      // Fractional values pass validation (1.5 > 1)
-      expect(options.numberOfLinks).toBeGreaterThanOrEqual(1);
+    it('should reject fractional satsPerLink', async () => {
+      await expect(
+        generateLinksFromNWC({
+          nwcUrl: validNwcUrl,
+          numberOfLinks: 1,
+          satsPerLink: 99.5,
+        })
+      ).rejects.toThrow('satsPerLink must be an integer');
     });
 
     it('should handle exactly 1 link request (validation only)', () => {
@@ -147,6 +154,17 @@ describe('Link Generator', () => {
       };
 
       expect(options.satsPerLink).toBe(Number.MAX_SAFE_INTEGER);
+    });
+
+    it('should reject empty relays array when explicitly provided', async () => {
+      await expect(
+        generateLinksFromNWC({
+          nwcUrl: validNwcUrl,
+          numberOfLinks: 1,
+          satsPerLink: 100,
+          relays: [],
+        })
+      ).rejects.toThrow('relays array cannot be empty when provided');
     });
   });
 

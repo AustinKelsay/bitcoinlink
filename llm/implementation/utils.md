@@ -64,11 +64,15 @@ Extracts the description from a Bolt11 invoice.
 
 ```typescript
 export const getBolt11Description = (invoice: string): string | null => {
-  const decoded = bolt11Decoder.decode(invoice);
-  const descriptionSection = decoded.sections.find(
-    (section) => section.tag === 'd'
-  );
-  return descriptionSection ? String(descriptionSection.value) : null;
+  try {
+    const decoded = bolt11Decoder.decode(invoice);
+    const descriptionSection = decoded.sections.find(
+      (section) => section.tag === 'd'
+    );
+    return descriptionSection ? String(descriptionSection.value) : null;
+  } catch {
+    return null;
+  }
 };
 ```
 
@@ -78,12 +82,16 @@ Extracts the amount in satoshis from a Bolt11 invoice.
 
 ```typescript
 export const getBolt11Amount = (invoice: string): number | null => {
-  const decoded = bolt11Decoder.decode(invoice);
-  const amountSection = decoded.sections.find(
-    (section) => section.name === 'amount'
-  );
-  // BOLT11 amount is in millisatoshis
-  return amountSection ? Number(amountSection.value) / 1000 : null;
+  try {
+    const decoded = bolt11Decoder.decode(invoice);
+    const amountSection = decoded.sections.find(
+      (section) => section.name === 'amount'
+    );
+    // BOLT11 amount is in millisatoshis
+    return amountSection ? Number(amountSection.value) / 1000 : null;
+  } catch {
+    return null;
+  }
 };
 ```
 
@@ -92,7 +100,8 @@ export const getBolt11Amount = (invoice: string): number | null => {
 ```typescript
 import { validateBolt11, getBolt11Amount, getBolt11Description } from '@/utils/bolt11';
 
-const result = validateBolt11('lnbc1000n1pj...');
+const invoice = 'lnbc1000n1pj...';
+const result = validateBolt11(invoice);
 
 if (result.valid) {
   const amount = getBolt11Amount(invoice);   // sats

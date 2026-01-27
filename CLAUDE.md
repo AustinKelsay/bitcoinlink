@@ -11,7 +11,7 @@
 ## Quick Start
 
 ```bash
-# Install dependencies (snstr must be available at ../snstr)
+# Install dependencies (snstr is now on npm as ^0.2.0)
 npm install
 
 # Run development server

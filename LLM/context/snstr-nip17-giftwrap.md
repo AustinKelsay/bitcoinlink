@@ -11,7 +11,7 @@ NIP-17 provides encrypted direct messaging with metadata protection:
 
 ## Event Layers
 
-```
+```text
 ┌─────────────────────────────────────────┐
 │ Gift Wrap (Kind 1059)                   │
 │ - pubkey: ephemeral (random)            │
