@@ -70,24 +70,26 @@ const handleNwcReplacementPostRequest = async (
       nostrWalletConnectUrl: decryptedUrl,
     });
 
-    await nwcProvider.enable();
+    try {
+      await nwcProvider.enable();
 
-    const response = await nwcProvider.sendPayment(invoice);
+      const response = await nwcProvider.sendPayment(invoice);
 
-    nwcProvider.close(); // close the websocket connection
+      if (response.preimage && response.preimage.length > 0) {
+        const deletedLink = await deleteLink(link.id);
 
-    if (response.preimage && response.preimage.length > 0) {
-      const deletedLink = await deleteLink(link.id);
-
-      if (deletedLink && Object.keys(deletedLink).length > 0) {
-        res
-          .status(200)
-          .json({ message: 'Payment successful', response: { preimage: response.preimage } });
-        return;
-      } else {
-        res.status(500).json({ error: 'Error deleting link' });
-        return;
+        if (deletedLink && Object.keys(deletedLink).length > 0) {
+          res
+            .status(200)
+            .json({ message: 'Payment successful', response: { preimage: response.preimage } });
+          return;
+        } else {
+          res.status(500).json({ error: 'Error deleting link' });
+          return;
+        }
       }
+    } finally {
+      nwcProvider.close();
     }
   } catch (error) {
     const errorMessage =
@@ -140,38 +142,41 @@ const handlePostRequest = async (
       nostrWalletConnectUrl: decryptedUrl,
     });
 
-    await nwcProvider.enable();
+    try {
+      await nwcProvider.enable();
 
-    const response = await nwcProvider.sendPayment(invoice);
+      const response = await nwcProvider.sendPayment(invoice);
 
-    nwcProvider.close(); // close the websocket connection
-    if (!response) {
-      res.status(500).json({ error: 'Error paying invoice' });
-      return;
-    } else if (response.preimage && response.preimage.length > 0) {
-      const link = await getLinkByNwcIdAndIndex(nwc.id, linkIndex);
-      if (!link) {
-        res.status(404).json({ error: 'Link not found' });
+      if (!response) {
+        res.status(500).json({ error: 'Error paying invoice' });
         return;
-      }
-      const deletedLink = await deleteLink(link.id);
-
-      if (deletedLink && Object.keys(deletedLink).length > 0) {
-        const deleted = await deleteNwc(slug);
-
-        if (deleted && Object.keys(deleted).length > 0) {
-          res
-            .status(200)
-            .json({ message: 'Payment successful', response: { preimage: response.preimage } });
-          return;
-        } else {
-          res.status(500).json({ error: 'Error deleting NWC' });
+      } else if (response.preimage && response.preimage.length > 0) {
+        const link = await getLinkByNwcIdAndIndex(nwc.id, linkIndex);
+        if (!link) {
+          res.status(404).json({ error: 'Link not found' });
           return;
         }
-      } else {
-        res.status(500).json({ error: 'Error deleting link' });
-        return;
+        const deletedLink = await deleteLink(link.id);
+
+        if (deletedLink && Object.keys(deletedLink).length > 0) {
+          const deleted = await deleteNwc(slug);
+
+          if (deleted && Object.keys(deleted).length > 0) {
+            res
+              .status(200)
+              .json({ message: 'Payment successful', response: { preimage: response.preimage } });
+            return;
+          } else {
+            res.status(500).json({ error: 'Error deleting NWC' });
+            return;
+          }
+        } else {
+          res.status(500).json({ error: 'Error deleting link' });
+          return;
+        }
       }
+    } finally {
+      nwcProvider.close();
     }
   } catch (error) {
     const errorMessage =
