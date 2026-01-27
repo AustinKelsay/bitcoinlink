@@ -30,8 +30,8 @@
   },
   "devDependencies": {
     "@types/node": "^20.14.10",
-    "@types/react": "^19.2.9",
-    "@types/react-dom": "^19.2.3",
+    "@types/react": "^18.3.23",
+    "@types/react-dom": "^18.3.23",
     "@types/uuid": "^10.0.0",
     "eslint": "^8",
     "eslint-config-next": "14.2.3",
