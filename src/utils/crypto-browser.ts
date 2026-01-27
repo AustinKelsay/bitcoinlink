@@ -8,11 +8,24 @@ export interface EncryptedData {
 }
 
 /**
+ * Gets the crypto object, with fallback for Node.js environment
+ */
+function getCrypto(): Crypto {
+  if (typeof window !== 'undefined' && window.crypto) {
+    return window.crypto;
+  }
+  if (typeof globalThis !== 'undefined' && globalThis.crypto) {
+    return globalThis.crypto;
+  }
+  throw new Error('Web Crypto API not available');
+}
+
+/**
  * Generates cryptographically secure random bytes as hex string
  */
 function randomBytesHex(length: number): string {
   const bytes = new Uint8Array(length);
-  window.crypto.getRandomValues(bytes);
+  getCrypto().getRandomValues(bytes);
   return Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
@@ -43,11 +56,12 @@ function bytesToHex(bytes: Uint8Array): string {
  * The IV is prepended to the encrypted data (hex encoded).
  */
 export async function encryptNWCUrl(url: string): Promise<EncryptedData> {
+  const crypto = getCrypto();
   const secret = randomBytesHex(KEY_LENGTH);
   const iv = new Uint8Array(IV_LENGTH);
-  window.crypto.getRandomValues(iv);
+  crypto.getRandomValues(iv);
   const keyData = hexToBytes(secret);
-  const key = await window.crypto.subtle.importKey(
+  const key = await crypto.subtle.importKey(
     'raw',
     keyData as BufferSource,
     { name: ALGORITHM },
@@ -58,7 +72,7 @@ export async function encryptNWCUrl(url: string): Promise<EncryptedData> {
   const encoder = new TextEncoder();
   const data = encoder.encode(url);
 
-  const encrypted = await window.crypto.subtle.encrypt(
+  const encrypted = await crypto.subtle.encrypt(
     { name: ALGORITHM, iv: iv as BufferSource },
     key,
     data as BufferSource
@@ -77,11 +91,12 @@ export async function decryptNWCUrl(
   encryptedUrl: string,
   secret: string
 ): Promise<string> {
+  const crypto = getCrypto();
   const iv = hexToBytes(encryptedUrl.slice(0, IV_LENGTH * 2));
   const encryptedData = hexToBytes(encryptedUrl.slice(IV_LENGTH * 2));
 
   const keyData = hexToBytes(secret);
-  const key = await window.crypto.subtle.importKey(
+  const key = await crypto.subtle.importKey(
     'raw',
     keyData as BufferSource,
     { name: ALGORITHM },
@@ -89,7 +104,7 @@ export async function decryptNWCUrl(
     ['decrypt']
   );
 
-  const decrypted = await window.crypto.subtle.decrypt(
+  const decrypted = await crypto.subtle.decrypt(
     { name: ALGORITHM, iv: iv as BufferSource },
     key,
     encryptedData as BufferSource
