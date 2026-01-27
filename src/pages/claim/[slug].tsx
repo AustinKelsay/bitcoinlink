@@ -438,7 +438,23 @@ export default function ClaimPage(): React.ReactElement {
             );
             return;
           }
+        } else {
+          setIsSubmitting(false);
+          showToast(
+            'error',
+            'Invoice Creation Failed',
+            'Failed to create invoice. Please try again.'
+          );
+          return;
         }
+      } else {
+        setIsSubmitting(false);
+        showToast(
+          'error',
+          'WebLN Not Available',
+          'WebLN extension not found. Please install Alby or another WebLN provider.'
+        );
+        return;
       }
     } catch {
       console.error('Error sending payment');
