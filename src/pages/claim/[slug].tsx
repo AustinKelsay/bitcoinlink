@@ -3,12 +3,9 @@ import { useRouter } from 'next/router';
 import { bech32 } from 'bech32';
 import StrikeInstructions from '@/components/strike/StrikeInstructions';
 import CashAppInstructions from '@/components/cashapp/CashAppInstructions';
-import MutinyInstructions from '@/components/mutiny/MutinyInstructions';
 import { validateBolt11 } from '@/utils/bolt11';
 import CashAppButton from '@/components/cashapp/CashAppButton';
-import MutinyButton from '@/components/mutiny/MutinyButton';
 import StrikeButton from '@/components/strike/StrikeButton';
-import AlbyButton from '@/components/AlbyButton';
 import { InputText } from 'primereact/inputtext';
 import { Button } from 'primereact/button';
 import { ProgressSpinner } from 'primereact/progressspinner';
@@ -34,7 +31,6 @@ export default function ClaimPage(): React.ReactElement {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isStrikeVisible, setIsStrikeVisible] = useState(false);
   const [isCashAppVisible, setIsCashAppVisible] = useState(false);
-  const [isMutinyVisible, setIsMutinyVisible] = useState(false);
   const router = useRouter();
 
   const { slug } = router.query;
@@ -491,15 +487,18 @@ export default function ClaimPage(): React.ReactElement {
             </form>
             <div className="flex flex-col my-4">
               <p className="text-2xl text-center my-0">OR</p>
-              <div className="flex flex-col w-[225px] justify-between mx-auto h-[30vh] mb-4">
-                <AlbyButton text="Claim with Alby" handleSubmit={handleAlbySubmit} />
+              <div className="flex flex-col w-[225px] justify-between mx-auto h-[24vh] mb-4">
+                <button
+                  onClick={handleAlbySubmit}
+                  disabled={claimed || isSubmitting}
+                  className="flex items-center justify-center gap-2 px-4 py-2 bg-[#FFDF6F] hover:bg-[#FFE88C] text-black font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span>⚡</span>
+                  <span>Claim with Alby</span>
+                </button>
                 <StrikeButton
                   text="Claim with Strike"
                   handleSubmit={() => setIsStrikeVisible(true)}
-                />
-                <MutinyButton
-                  text="Claim with Mutiny"
-                  handleSubmit={() => setIsMutinyVisible(true)}
                 />
                 <CashAppButton
                   text="Claim with CashApp"
@@ -523,16 +522,6 @@ export default function ClaimPage(): React.ReactElement {
         isVisible={isCashAppVisible}
         onHide={() => {
           setIsCashAppVisible(false);
-        }}
-        input={input}
-        setInput={setInput}
-        onSubmit={handleSubmit}
-        amount={linkInfo?.amount}
-      />
-      <MutinyInstructions
-        isVisible={isMutinyVisible}
-        onHide={() => {
-          setIsMutinyVisible(false);
         }}
         input={input}
         setInput={setInput}

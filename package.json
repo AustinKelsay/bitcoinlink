@@ -10,6 +10,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@getalby/bitcoin-connect-react": "^3.11.5",
     "@getalby/sdk": "^3.5.0",
     "bech32": "^2.0.0",
     "light-bolt11-decoder": "^3.1.1",

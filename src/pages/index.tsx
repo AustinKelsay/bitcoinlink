@@ -1,14 +1,17 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { InputNumber, InputNumberValueChangeEvent } from 'primereact/inputnumber';
 import { ProgressSpinner } from 'primereact/progressspinner';
-import AlbyButton from '@/components/AlbyButton';
-import AlbyModal from '@/components/AlbyModal';
-import MutinyButton from '@/components/mutiny/MutinyButton';
-import MutinyModal from '@/components/mutiny/MutinyModal';
 import { useToast } from '@/hooks/useToast';
 import 'primeicons/primeicons.css';
 import LinkModal from '@/components/LinkModal';
 import { generateLinksFromNWC } from '@/lib/nostr';
+
+// Dynamically import Bitcoin Connect components (required for NextJS)
+const Button = dynamic(
+  () => import('@getalby/bitcoin-connect-react').then((mod) => mod.Button),
+  { ssr: false }
+);
 
 /**
  * Validation result for link generation inputs.
@@ -26,8 +29,6 @@ export default function Home(): React.ReactElement {
   
   // Modal visibility
   const [linkModalVisible, setLinkModalVisible] = useState(false);
-  const [mutinyModalVisible, setMutinyModalVisible] = useState(false);
-  const [albyModalVisible, setAlbyModalVisible] = useState(false);
   
   // Link generation state
   const [generatedLinks, setGeneratedLinks] = useState<string[]>([]);
@@ -35,6 +36,15 @@ export default function Home(): React.ReactElement {
 
   // Hooks
   const { showToast } = useToast();
+
+  // Initialize Bitcoin Connect on mount
+  useEffect(() => {
+    const initBitcoinConnect = async () => {
+      const { init } = await import('@getalby/bitcoin-connect-react');
+      init({ appName: 'bitcoinlink.app' });
+    };
+    initBitcoinConnect();
+  }, []);
 
   /**
    * Validate the form inputs for link generation.
@@ -53,7 +63,6 @@ export default function Home(): React.ReactElement {
 
   /**
    * Generate links from an NWC URL.
-   * Called by both AlbyModal and MutinyModal after obtaining an NWC URL.
    */
   const handleGenerateLinks = useCallback(async (nwcUrl: string): Promise<void> => {
     if (!numberOfLinks || !satsPerLink) {
@@ -87,24 +96,31 @@ export default function Home(): React.ReactElement {
   }, [numberOfLinks, satsPerLink, showToast]);
 
   /**
-   * Open Alby modal with validation.
+   * Handle wallet connection from Bitcoin Connect.
+   * Extracts the NWC URL and generates links.
    */
-  const handleAlbyClick = useCallback((): void => {
+  const handleConnected = useCallback(async () => {
     const validation = validateInputs();
-    if (validation) {
-      setAlbyModalVisible(true);
+    if (!validation) {
+      return;
     }
-  }, [validateInputs]);
 
-  /**
-   * Open Mutiny modal with validation.
-   */
-  const handleMutinyClick = useCallback((): void => {
-    const validation = validateInputs();
-    if (validation) {
-      setMutinyModalVisible(true);
+    try {
+      // Get the NWC URL from Bitcoin Connect's stored connection config
+      const { getConnectorConfig } = await import('@getalby/bitcoin-connect-react');
+      const config = getConnectorConfig();
+      
+      if (!config?.nwcUrl) {
+        showToast('error', 'Connection Error', 'Could not retrieve NWC URL from wallet. Please try a different wallet or paste your NWC URL manually.');
+        return;
+      }
+      
+      await handleGenerateLinks(config.nwcUrl);
+    } catch (error) {
+      console.error('Error handling wallet connection');
+      showToast('error', 'Connection Error', 'Failed to process wallet connection.');
     }
-  }, [validateInputs]);
+  }, [validateInputs, handleGenerateLinks, showToast]);
 
   // Determine if we're in any loading state
   const isLoading = generatingLinks;
@@ -155,41 +171,22 @@ export default function Home(): React.ReactElement {
             />
           </div>
           
-          <div className="flex flex-col justify-between h-[12vh] my-8">
-            <AlbyButton 
-              text="Generate with Alby" 
-              handleSubmit={handleAlbyClick}
-              disabled={isLoading}
-            />
-            <MutinyButton
-              text="Generate with Mutiny"
-              disabled={isLoading}
-              handleSubmit={handleMutinyClick}
-            />
+          <div className="flex flex-col justify-center items-center my-8">
+            <p className="text-sm text-gray-400 mb-4">
+              Connect your Lightning wallet to generate links
+            </p>
+            <Button onConnected={handleConnected} />
           </div>
+          
+          {numberOfLinks && satsPerLink && (
+            <div className="text-sm text-gray-400 mt-4">
+              <p>
+                <strong>Budget needed:</strong> {numberOfLinks * satsPerLink} sats 
+                ({numberOfLinks} links × {satsPerLink} sats each)
+              </p>
+            </div>
+          )}
         </div>
-      )}
-      
-      {albyModalVisible && (
-        <AlbyModal
-          visible={albyModalVisible}
-          onHide={() => setAlbyModalVisible(false)}
-          numberOfLinks={numberOfLinks ?? 0}
-          satsPerLink={satsPerLink ?? 0}
-          onNwcUrlReady={handleGenerateLinks}
-        />
-      )}
-
-      {mutinyModalVisible && (
-        <MutinyModal
-          mutinyModalVisible={mutinyModalVisible}
-          setMutinyModalVisible={setMutinyModalVisible}
-          setLinkModalVisible={setLinkModalVisible}
-          setGeneratedLinks={setGeneratedLinks}
-          setGeneratingLinks={setGeneratingLinks}
-          numberOfLinks={numberOfLinks ?? 0}
-          satsPerLink={satsPerLink ?? 0}
-        />
       )}
 
       {linkModalVisible && generatedLinks.length > 0 && (
