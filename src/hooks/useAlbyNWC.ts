@@ -3,7 +3,7 @@
  * Handles connection state, authorization, and proper cleanup.
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { nwc } from '@getalby/sdk';
 
 /**
@@ -98,6 +98,13 @@ export function useAlbyNWC(): UseAlbyNWCReturn {
       clientRef.current = null;
     }
   }, []);
+
+  // Cleanup on unmount to prevent relay connection leaks
+  useEffect(() => {
+    return () => {
+      cleanup();
+    };
+  }, [cleanup]);
 
   /**
    * Reset to initial state.
