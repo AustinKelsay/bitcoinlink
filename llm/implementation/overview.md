@@ -215,25 +215,62 @@ The Nostr-only refactor removed:
 ## Build and Development
 
 ```bash
-# Development
-npm run dev
-
-# Build
-npm run build
-
-# Start production
-npm start
-
-# Lint
-npm run lint
-
-# Test
-npm test
+npm run dev    # Development server
+npm run build  # Production build
+npm start      # Start production server
+npm run lint   # ESLint
+npm test       # Jest test suite
 ```
 
 ## Environment Variables
 
 **None required.** The app uses public Nostr relays.
+
+## Testing
+
+The project has comprehensive test coverage using Jest with ts-jest for TypeScript support.
+
+### Test Structure
+
+```
+tests/
+├── nostr/
+│   ├── gift-wrap.test.ts       # Gift wrap creation/decryption
+│   ├── link-encoder.test.ts    # URL encoding/decoding
+│   ├── link-generator.test.ts  # Link generation validation
+│   ├── client.test.ts          # Nostr client configuration
+│   ├── claim-flow.test.ts      # Full create→claim integration
+│   ├── nwc-client.test.ts      # NWC URL utilities
+│   └── nwc-payment.test.ts     # NWC payment (mocked)
+└── utils/
+    └── bolt11.test.ts          # Invoice validation
+```
+
+### Running Tests
+
+```bash
+npm test           # Run all tests
+npm test -- --watch  # Watch mode
+npm test -- --coverage  # Coverage report
+```
+
+### Test Categories
+
+| Category | Tests | Description |
+|----------|-------|-------------|
+| Unit | gift-wrap, link-encoder, nwc-client, bolt11 | Pure function tests |
+| Validation | link-generator | Input validation before network ops |
+| Integration | claim-flow | Full create→encode→decode→decrypt cycle |
+| Mocked | nwc-payment | Payment flow with mocked NWC client |
+
+### Coverage
+
+- **131 tests** across 8 test files
+- Input validation and error handling
+- Edge cases (zero/negative/large values, unicode, special characters)
+- Key validation and security edge cases
+- Batch/concurrent operations
+- Roundtrip verification (encode→decode, create→decrypt)
 
 ## Key Imports
 

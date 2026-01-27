@@ -215,6 +215,13 @@ The hook connects to 12 public Nostr relays for broad coverage of Mutiny NWA eve
 
 ---
 
-## Note on Nostr Client
+## Note on Nostr Clients
 
-For the main link creation/claiming flows, BitcoinLink uses the custom `BitcoinLinkNostrClient` class in `src/lib/nostr/client.ts` instead of this hook. The hook is specifically for the Mutiny NWA authentication flow which uses `nostr-tools` directly.
+BitcoinLink uses two different Nostr clients:
+
+| Client | Used For | Library |
+|--------|----------|---------|
+| `BitcoinLinkNostrClient` | Link creation/claiming (gift wrap events) | snstr |
+| `useSubscribeToEvents` | Mutiny NWA auth flow (kind 33194 events) | nostr-tools |
+
+The hook exists specifically because the NWA flow needs `nostr-tools`' SimplePool for listening to wallet authorization responses, while the main flows use the custom client built on snstr.

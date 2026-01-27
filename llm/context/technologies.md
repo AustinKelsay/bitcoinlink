@@ -3,19 +3,16 @@
 ## Core Framework
 
 ### Next.js 14.2.3
-- React framework for production
-- File-based routing (Pages Router)
-- Client-side only (no SSR required for this app)
-- Static export capability
+- React framework with Pages Router
+- Client-side only (no SSR required)
+- Static export capable
 
 ### React 18
-- Frontend UI library
 - Hooks-based architecture
-- Context for state management (ToastProvider)
+- Context for state (ToastProvider)
 
-### TypeScript 5.x
+### TypeScript 5.9.3
 - Type-safe development
-- Enhanced IDE support
 - Compile-time error checking
 
 ## Nostr Protocol
@@ -90,17 +87,18 @@ import { createDeletionRequest, getEventHash, signEvent } from 'snstr';
 ## Development Dependencies
 
 ### Jest 29.7.0
-- Testing framework
-- With ts-jest for TypeScript support
+Testing framework with comprehensive coverage:
+- **ts-jest 29.1.1** for TypeScript support
+- **@types/jest 29.5.11** for type definitions
+- 8 test files, 131 tests
+- Unit, validation, integration, and security edge case tests
 
 ### ESLint 8.x
 - JavaScript/TypeScript linter
-- Code quality enforcement
 - `eslint-config-next` for Next.js rules
 
 ### PostCSS 8.x
-- CSS processing
-- Required by Tailwind CSS
+- CSS processing (required by Tailwind)
 
 ## Package.json Scripts
 

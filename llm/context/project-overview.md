@@ -183,10 +183,21 @@ The encoded JSON contains:
 | UI | Tailwind CSS, PrimeReact, qrcode.react |
 | Bitcoin | @getalby/sdk, light-bolt11-decoder, bech32 |
 
+## Testing
+
+Comprehensive test suite with 131 tests covering:
+- Gift wrap encryption/decryption
+- URL encoding/decoding
+- Input validation
+- NWC payment flow (mocked)
+- Full claim flow integration
+
+Run tests: `npm test`
+
 ## Open Source
 
 BitcoinLink is fully open source:
 - Self-hostable (just a Next.js app)
-- Auditable code
+- Auditable code with test coverage
 - Community contributions welcome
 - No backend infrastructure required

@@ -8,72 +8,112 @@ BitcoinLink has a minimal set of utility functions, primarily for Bolt11 invoice
 
 ## src/utils/bolt11.ts
 
-Bolt11 Lightning invoice validation utility.
+Bolt11 Lightning invoice utilities for parsing, validating, and extracting data.
 
 ### validateBolt11
 
-Validates a Bolt11 invoice format and checks for expiration.
+Validates a Bolt11 invoice format, expiration, payment hash, and amount.
 
 ```typescript
-import decode from 'light-bolt11-decoder';
+import bolt11Decoder from 'light-bolt11-decoder';
 
-export function validateBolt11(invoice: string): {
-  valid: boolean;
-  reason?: string;
-} {
+export const validateBolt11 = (invoice: string): ValidationResult => {
   try {
-    const decoded = decode(invoice);
+    const decoded = bolt11Decoder.decode(invoice);
 
-    // Check if the invoice has expired
+    // Check timestamp
     const timestampSection = decoded.sections.find(
       (section) => section.name === 'timestamp'
     );
-    const timestamp = timestampSection?.value;
-    const expiry = decoded.expiry || 3600;
-
-    if (timestamp && Date.now() / 1000 > timestamp + expiry) {
+    if (!timestampSection) {
+      return { valid: false, reason: 'Missing timestamp' };
+    }
+    
+    // Check expiration
+    const expiryTimestamp = Number(timestampSection.value) + decoded.expiry;
+    if (Math.floor(Date.now() / 1000) > expiryTimestamp) {
       return { valid: false, reason: 'Invoice has expired' };
     }
 
-    // Check for valid payment hash
-    const paymentHash = decoded.sections.find(
+    // Check payment hash (must be 64-char hex)
+    const paymentHashSection = decoded.sections.find(
       (section) => section.name === 'payment_hash'
-    )?.value;
-
-    if (!paymentHash || paymentHash.length !== 64) {
+    );
+    if (!paymentHashSection || String(paymentHashSection.value).length !== 64) {
       return { valid: false, reason: 'Invalid payment hash' };
     }
 
+    // Check amount
+    const amountSection = decoded.sections.find(
+      (section) => section.name === 'amount'
+    );
+    if (!amountSection || isNaN(Number(amountSection.value))) {
+      return { valid: false, reason: 'Invalid amount' };
+    }
+
     return { valid: true };
-  } catch (error) {
+  } catch {
     return { valid: false, reason: 'Invalid Bolt11 invoice' };
   }
-}
+};
+```
+
+### getBolt11Description
+
+Extracts the description from a Bolt11 invoice.
+
+```typescript
+export const getBolt11Description = (invoice: string): string | null => {
+  const decoded = bolt11Decoder.decode(invoice);
+  const descriptionSection = decoded.sections.find(
+    (section) => section.tag === 'd'
+  );
+  return descriptionSection ? String(descriptionSection.value) : null;
+};
+```
+
+### getBolt11Amount
+
+Extracts the amount in satoshis from a Bolt11 invoice.
+
+```typescript
+export const getBolt11Amount = (invoice: string): number | null => {
+  const decoded = bolt11Decoder.decode(invoice);
+  const amountSection = decoded.sections.find(
+    (section) => section.name === 'amount'
+  );
+  // BOLT11 amount is in millisatoshis
+  return amountSection ? Number(amountSection.value) / 1000 : null;
+};
 ```
 
 ### Usage
 
 ```typescript
-import { validateBolt11 } from '@/utils/bolt11';
+import { validateBolt11, getBolt11Amount, getBolt11Description } from '@/utils/bolt11';
 
 const result = validateBolt11('lnbc1000n1pj...');
 
 if (result.valid) {
-  // Proceed with payment
+  const amount = getBolt11Amount(invoice);   // sats
+  const desc = getBolt11Description(invoice); // string or null
 } else {
   console.error(result.reason);
+  // "Missing timestamp"
   // "Invoice has expired"
   // "Invalid payment hash"
+  // "Invalid amount"
   // "Invalid Bolt11 invoice"
 }
 ```
 
-### Return Value
+### Types
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `valid` | `boolean` | Whether invoice is valid |
-| `reason` | `string \| undefined` | Error reason if invalid |
+```typescript
+export interface ValidationResult {
+  valid: boolean;
+  reason?: string;
+}
 
 ---
 

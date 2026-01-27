@@ -63,11 +63,10 @@ export async function createBitcoinLink(
   payload: BitcoinLinkPayload
 ): Promise<BitcoinLinkResult> {
   const receiver = await generateKeypair();  // Private key goes in URL
-  const sender = await generateKeypair();    // Ephemeral, discarded after signing
+  const sender = await generateKeypair();    // Ephemeral, discarded
 
-  const message = JSON.stringify(payload);
   const giftWrap = await createDirectMessage(
-    message,
+    JSON.stringify(payload),
     sender.privateKey,
     receiver.publicKey
   );
@@ -83,8 +82,6 @@ export async function createBitcoinLink(
 **Decrypting a link:**
 ```typescript
 import { decryptDirectMessage, GIFT_WRAP_KIND } from 'snstr';
-import type { NostrEvent } from 'snstr';
-import type { BitcoinLinkPayload } from './types';
 
 export function decryptBitcoinLink(
   giftWrap: NostrEvent,
@@ -97,11 +94,7 @@ export function decryptBitcoinLink(
   const rumor = decryptDirectMessage(giftWrap, receiverPrivateKey);
   const payload = JSON.parse(rumor.content);
   
-  // Validate payload structure
-  if (payload.type !== 'bitcoinlink') {
-    throw new Error(`Invalid payload type: expected 'bitcoinlink'`);
-  }
-  
+  validatePayload(payload);  // Throws on invalid structure
   return payload;
 }
 ```

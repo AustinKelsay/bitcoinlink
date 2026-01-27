@@ -49,7 +49,7 @@ npm start
 ### Prerequisites
 - Node.js 18+
 - npm
-- snstr library (must be available at `../snstr` relative to this repo)
+- snstr library at `../snstr` (referenced via `"snstr": "file:../snstr"`)
 
 ### Setup
 
@@ -59,27 +59,22 @@ git clone https://github.com/austinkelsay/bitcoinlink.git
 cd bitcoinlink
 
 # Ensure snstr is available at ../snstr
-# If not, clone and build it:
 git clone https://github.com/AustinKelsay/snstr.git ../snstr
 cd ../snstr && npm install && npm run build && cd ../bitcoinlink
 
-# Install dependencies
+# Install and start
 npm install
-
-# Start development server
 npm run dev
 ```
 
-The `snstr` dependency is referenced as `"snstr": "file:../snstr"` in package.json.
-
-### Development Commands
+### Commands
 
 ```bash
-npm run dev    # Start development server (http://localhost:3000)
-npm run build  # Build for production
-npm start      # Start production server
-npm run lint   # Run ESLint
-npm test       # Run tests
+npm run dev    # Development server (localhost:3000)
+npm run build  # Production build
+npm start      # Production server
+npm run lint   # ESLint
+npm test       # Jest test suite (131 tests)
 ```
 
 ---

@@ -86,10 +86,10 @@ Modal for Mutiny wallet connection via Nostr Wallet Auth (NWA) protocol.
 ```
 1. Generate keypair and NWA URI with budget
 2. Display QR code for mobile or open browser popup
-3. Subscribe to kind 33194 events on Nostr relays
-4. Decrypt NIP-04 response and extract NWC URL
-5. Generate gift-wrapped links
-6. Publish to relays and display URLs
+3. Subscribe to kind 33194 events via useSubscribeToEvents
+4. Decrypt NIP-04 response using snstr's decryptNIP04
+5. Generate links via generateLinksFromNWC utility
+6. Display URLs in LinkModal
 ```
 
 ---

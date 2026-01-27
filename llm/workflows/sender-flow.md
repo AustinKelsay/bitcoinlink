@@ -201,16 +201,15 @@ const links = await generateLinksFromNWC({
 **Under the hood** (`src/lib/nostr/link-generator.ts`):
 
 ```tsx
-import {
-  createBitcoinLink,
-  BitcoinLinkNostrClient,
-  createClaimUrl,
-} from '@/lib/nostr';
-import type { BitcoinLinkPayload } from '@/lib/nostr';
-
-export async function generateLinksFromNWC(options: GenerateLinksOptions): Promise<string[]> {
+export async function generateLinksFromNWC(
+  options: GenerateLinksOptions
+): Promise<string[]> {
   const { nwcUrl, numberOfLinks, satsPerLink, relays } = options;
-  
+
+  // Input validation (tested extensively)
+  if (numberOfLinks < 1) throw new Error('numberOfLinks must be at least 1');
+  if (satsPerLink < 1) throw new Error('satsPerLink must be at least 1');
+
   const client = new BitcoinLinkNostrClient(relays);
   const links: string[] = [];
 
@@ -218,27 +217,21 @@ export async function generateLinksFromNWC(options: GenerateLinksOptions): Promi
     await client.connect();
 
     for (let i = 0; i < numberOfLinks; i++) {
-      // 1. Create payload
       const payload: BitcoinLinkPayload = {
         type: 'bitcoinlink',
         nwcUrl,
         amount: satsPerLink,
       };
 
-      // 2. Create gift-wrapped event with receiver keypair
       const { giftWrap, receiverPrivateKey } = await createBitcoinLink(payload);
-
-      // 3. Publish to Nostr relays
       await client.publish(giftWrap);
 
-      // 4. Create shareable URL
-      const claimUrl = createClaimUrl(
+      links.push(createClaimUrl(
         giftWrap.id,
         receiverPrivateKey,
         satsPerLink,
         client.getRelays()
-      );
-      links.push(claimUrl);
+      ));
     }
 
     return links;

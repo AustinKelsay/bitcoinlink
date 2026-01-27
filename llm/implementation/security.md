@@ -60,9 +60,6 @@ NWC URLs are protected using multi-layer encryption via gift wrap.
 **Creating a link:**
 ```typescript
 // src/lib/nostr/gift-wrap.ts
-import { createDirectMessage, generateKeypair, GIFT_WRAP_KIND } from 'snstr';
-import type { BitcoinLinkPayload, BitcoinLinkResult } from './types';
-
 export async function createBitcoinLink(
   payload: BitcoinLinkPayload
 ): Promise<BitcoinLinkResult> {
@@ -85,9 +82,6 @@ export async function createBitcoinLink(
 
 **Decrypting a link:**
 ```typescript
-import { decryptDirectMessage, GIFT_WRAP_KIND } from 'snstr';
-import type { NostrEvent } from 'snstr';
-
 export function decryptBitcoinLink(
   giftWrap: NostrEvent,
   receiverPrivateKey: string
@@ -97,7 +91,9 @@ export function decryptBitcoinLink(
   }
   
   const rumor = decryptDirectMessage(giftWrap, receiverPrivateKey);
-  return JSON.parse(rumor.content);
+  const payload = JSON.parse(rumor.content);
+  validatePayload(payload);  // Validates type, nwcUrl, amount
+  return payload;
 }
 ```
 

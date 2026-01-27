@@ -2,12 +2,12 @@
 
 ## Bitcoin Overview
 
-Bitcoin is a decentralized digital currency that operates without a central authority. Transactions are verified by network nodes through cryptography and recorded on a public distributed ledger called a blockchain.
+Bitcoin is a decentralized digital currency verified by network nodes through cryptography and recorded on a public blockchain.
 
 **Key Properties:**
 - Decentralized (no central authority)
-- Limited supply (21 million BTC max)
-- Pseudonymous (addresses not tied to identity)
+- Limited supply (21 million BTC)
+- Pseudonymous
 - Irreversible transactions
 
 ## Lightning Network
