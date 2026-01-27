@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { SimplePool, type Event, type Filter, type Sub } from 'nostr-tools';
 
 const initialRelays: string[] = [
@@ -29,6 +29,18 @@ const useSubscribeToEvents = (): UseSubscribeToEventsReturn => {
     new SimplePool({ seenOnEnabled: true })
   );
   const subscriptions = useRef<Sub[]>([]);
+
+  // Cleanup subscriptions on unmount
+  useEffect(() => {
+    const currentPool = pool.current;
+    const currentSubscriptions = subscriptions.current;
+    return () => {
+      currentSubscriptions.forEach((sub) => {
+        sub.unsub();
+      });
+      currentPool.close(relays);
+    };
+  }, [relays]);
 
   const subscribeToEvents = (criteria: Filter[]): Sub => {
     const sub = pool.current.sub(relays, criteria, {
