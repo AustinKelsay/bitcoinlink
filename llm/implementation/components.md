@@ -8,77 +8,51 @@ BitcoinLink uses React components organized by functionality. The component libr
 
 ```
 src/components/
-├── AlbyButton.js           # Alby wallet integration button
-├── LinkModal.js            # Generated links display modal
-├── Footer.js               # Page footer
-├── ImagePreview.jsx        # Image preview component
+├── AlbyButton.tsx           # Alby wallet integration button
+├── LinkModal.tsx            # Generated links display modal
+├── Footer.tsx               # Page footer
+├── ImagePreview.jsx         # Image preview component
 ├── mutiny/
-│   ├── MutinyButton.js     # Mutiny wallet button
-│   ├── MutinyModal.js      # Mutiny NWA connection modal
-│   └── MutinyInstructions.js # Claiming instructions for Mutiny
+│   ├── MutinyButton.tsx     # Mutiny wallet button
+│   ├── MutinyModal.tsx      # Mutiny NWA connection modal
+│   └── MutinyInstructions.tsx # Claiming instructions for Mutiny
 ├── strike/
-│   ├── StrikeButton.js     # Strike wallet button
-│   └── StrikeInstructions.js # Claiming instructions for Strike
+│   ├── StrikeButton.tsx     # Strike wallet button
+│   └── StrikeInstructions.tsx # Claiming instructions for Strike
 └── cashapp/
-    ├── CashAppButton.js    # CashApp button
-    └── CashAppInstructions.js # Claiming instructions for CashApp
-```
-
-## Core Components
-
-### AlbyButton
-
-Branded button for Alby wallet integration.
-
-**Location:** `src/components/AlbyButton.js`
-
-**Props:**
-| Prop | Type | Description |
-|------|------|-------------|
-| `text` | string | Button label text |
-| `handleSubmit` | function | Click handler callback |
-
-**Usage:**
-```jsx
-<AlbyButton
-  text="Generate with Alby"
-  handleSubmit={handleAlbySubmit}
-/>
+    ├── CashAppButton.tsx    # CashApp button
+    └── CashAppInstructions.tsx # Claiming instructions for CashApp
 ```
 
 ---
 
+## Core Components
+
 ### LinkModal
 
-Modal dialog displaying generated payment links with copy functionality and API integration details.
+Displays generated payment links with copy functionality.
 
-**Location:** `src/components/LinkModal.js`
+**Location:** `src/components/LinkModal.tsx`
 
 **Props:**
 | Prop | Type | Description |
 |------|------|-------------|
-| `generatedLinks` | string[] | Array of generated link URLs |
-| `linkModalVisible` | boolean | Controls modal visibility |
-| `setLinkModalVisible` | function | Visibility state setter |
-| `secret` | string | Encryption secret (for display) |
-| `oneToManyNwcId` | string | NWC ID for API integration |
-| `oneToManySecret` | string | Secret for API integration |
+| `generatedLinks` | `string[] \| null` | Array of generated link URLs |
+| `linkModalVisible` | `boolean` | Controls modal visibility |
+| `setLinkModalVisible` | `(visible: boolean) => void` | Visibility setter |
 
 **Features:**
-- Tab view with "Links" and "API Integration" tabs
-- Copy-to-clipboard functionality
-- API endpoint and secret display
+- Display all generated links
+- Copy individual links
+- Copy all links at once
 - Links open in new tab
 
 **Usage:**
-```jsx
+```tsx
 <LinkModal
   generatedLinks={generatedLinks}
   linkModalVisible={linkModalVisible}
   setLinkModalVisible={setLinkModalVisible}
-  secret={secret}
-  oneToManyNwcId={oneToManyNwcId}
-  oneToManySecret={oneToManySecret}
 />
 ```
 
@@ -88,19 +62,19 @@ Modal dialog displaying generated payment links with copy functionality and API 
 
 Modal for Mutiny wallet connection via Nostr Wallet Auth (NWA) protocol.
 
-**Location:** `src/components/mutiny/MutinyModal.js`
+**Location:** `src/components/mutiny/MutinyModal.tsx`
 
 **Props:**
 | Prop | Type | Description |
 |------|------|-------------|
-| `mutinyModalVisible` | boolean | Controls modal visibility |
-| `setMutinyModalVisible` | function | Visibility state setter |
-| `satsPerLink` | number | Satoshis per link |
-| `numberOfLinks` | number | Number of links to generate |
-| `setLinkModalVisible` | function | Link modal visibility setter |
-| `setGeneratedLinks` | function | Generated links state setter |
-| `generatingLinks` | boolean | Loading state |
-| `setGeneratingLinks` | function | Loading state setter |
+| `mutinyModalVisible` | `boolean` | Controls modal visibility |
+| `setMutinyModalVisible` | `(visible: boolean) => void` | Visibility setter |
+| `satsPerLink` | `number` | Satoshis per link |
+| `numberOfLinks` | `number` | Number of links to generate |
+| `setLinkModalVisible` | `(visible: boolean) => void` | Link modal visibility |
+| `setGeneratedLinks` | `(links: string[]) => void` | Generated links setter |
+| `generatingLinks` | `boolean` | Loading state |
+| `setGeneratingLinks` | `(generating: boolean) => void` | Loading setter |
 
 **Features:**
 - QR code for NWA URI (mobile scanning)
@@ -110,11 +84,33 @@ Modal for Mutiny wallet connection via Nostr Wallet Auth (NWA) protocol.
 - Automatic link generation on successful auth
 
 **NWA Flow:**
-1. Generates keypair and NWA URI with budget
-2. Displays QR code for mobile or opens browser popup
-3. Subscribes to kind 33194 events on Nostr relays
-4. Decrypts response and extracts NWC URL
-5. Generates encrypted links
+```
+1. Generate keypair and NWA URI with budget
+2. Display QR code for mobile or open browser popup
+3. Subscribe to kind 33194 events on Nostr relays
+4. Decrypt NIP-04 response and extract NWC URL
+5. Generate gift-wrapped links
+6. Publish to relays and display URLs
+```
+
+---
+
+### AlbyButton
+
+Styled button for Alby wallet actions.
+
+**Location:** `src/components/AlbyButton.tsx`
+
+**Props:**
+| Prop | Type | Description |
+|------|------|-------------|
+| `text` | `string` | Button label text |
+| `handleSubmit` | `() => void` | Click handler callback |
+
+**Usage:**
+```tsx
+<AlbyButton text="Generate with Alby" handleSubmit={handleAlbySubmit} />
+```
 
 ---
 
@@ -122,111 +118,63 @@ Modal for Mutiny wallet connection via Nostr Wallet Auth (NWA) protocol.
 
 Styled button for Mutiny wallet actions.
 
-**Location:** `src/components/mutiny/MutinyButton.js`
+**Location:** `src/components/mutiny/MutinyButton.tsx`
 
 **Props:**
 | Prop | Type | Description |
 |------|------|-------------|
-| `text` | string | Button label |
-| `handleSubmit` | function | Click handler |
-| `disabled` | boolean | Disabled state |
+| `text` | `string` | Button label |
+| `handleSubmit` | `() => void` | Click handler |
+| `disabled` | `boolean` | Disabled state |
 
 ---
 
-### MutinyInstructions
+### Instruction Components
 
-Step-by-step instructions for claiming links with Mutiny wallet.
+These components guide users through the claiming process for wallets without WebLN support.
 
-**Location:** `src/components/mutiny/MutinyInstructions.js`
+#### MutinyInstructions
+
+**Location:** `src/components/mutiny/MutinyInstructions.tsx`
 
 **Props:**
 | Prop | Type | Description |
 |------|------|-------------|
-| `isVisible` | boolean | Controls visibility |
-| `onHide` | function | Close handler |
-| `input` | string | Lightning address input value |
-| `setInput` | function | Input state setter |
-| `onSubmit` | function | Submit handler |
-| `amount` | number | Sats amount to claim |
+| `isVisible` | `boolean` | Controls visibility |
+| `onHide` | `() => void` | Close handler |
+| `input` | `string` | Lightning address input value |
+| `setInput` | `(value: string) => void` | Input setter |
+| `onSubmit` | `(e: FormEvent) => void` | Submit handler |
+| `amount` | `number \| undefined` | Sats amount to claim |
 
----
+#### StrikeInstructions
 
-### StrikeButton
-
-Styled button for Strike wallet actions.
-
-**Location:** `src/components/strike/StrikeButton.js`
+**Location:** `src/components/strike/StrikeInstructions.tsx`
 
 **Props:**
 | Prop | Type | Description |
 |------|------|-------------|
-| `text` | string | Button label |
-| `handleSubmit` | function | Click handler |
+| `isVisible` | `boolean` | Controls visibility |
+| `onHide` | `() => void` | Close handler |
+| `input` | `string` | Lightning address input value |
+| `setInput` | `(value: string) => void` | Input setter |
+| `onSubmit` | `(e: FormEvent) => void` | Submit handler |
 
----
+#### CashAppInstructions
 
-### StrikeInstructions
-
-Step-by-step instructions for claiming links with Strike wallet.
-
-**Location:** `src/components/strike/StrikeInstructions.js`
-
-**Props:**
-| Prop | Type | Description |
-|------|------|-------------|
-| `isVisible` | boolean | Controls visibility |
-| `onHide` | function | Close handler |
-| `input` | string | Lightning address input value |
-| `setInput` | function | Input state setter |
-| `onSubmit` | function | Submit handler |
-
----
-
-### CashAppButton
-
-Styled button for CashApp actions.
-
-**Location:** `src/components/cashapp/CashAppButton.js`
+**Location:** `src/components/cashapp/CashAppInstructions.tsx`
 
 **Props:**
 | Prop | Type | Description |
 |------|------|-------------|
-| `text` | string | Button label |
-| `handleSubmit` | function | Click handler |
+| `isVisible` | `boolean` | Controls visibility |
+| `onHide` | `() => void` | Close handler |
+| `input` | `string` | Lightning address input value |
+| `setInput` | `(value: string) => void` | Input setter |
+| `onSubmit` | `(e: FormEvent) => void` | Submit handler |
+| `amount` | `number \| undefined` | Sats amount to claim |
 
 ---
-
-### CashAppInstructions
-
-Step-by-step instructions for claiming links with CashApp.
-
-**Location:** `src/components/cashapp/CashAppInstructions.js`
-
-**Props:**
-| Prop | Type | Description |
-|------|------|-------------|
-| `isVisible` | boolean | Controls visibility |
-| `onHide` | function | Close handler |
-| `input` | string | Lightning address input value |
-| `setInput` | function | Input state setter |
-| `onSubmit` | function | Submit handler |
-| `amount` | number | Sats amount to claim |
-
----
-
-### Footer
-
-Simple footer component for page layout.
-
-**Location:** `src/components/Footer.js`
-
----
-
-### ImagePreview
-
-Image preview component for displaying images.
-
-**Location:** `src/components/ImagePreview.jsx`
 
 ## PrimeReact Components Used
 
@@ -236,9 +184,10 @@ Image preview component for displaying images.
 | `Button` | primereact/button | Action buttons |
 | `InputText` | primereact/inputtext | Text inputs |
 | `InputNumber` | primereact/inputnumber | Numeric inputs |
-| `TabView`, `TabPanel` | primereact/tabview | Tabbed interfaces |
 | `ProgressSpinner` | primereact/progressspinner | Loading states |
 | `Toast` | primereact/toast | Notifications |
+
+---
 
 ## Component Patterns
 
@@ -246,7 +195,7 @@ Image preview component for displaying images.
 
 All components use the `useToast` hook for notifications:
 
-```jsx
+```tsx
 const { showToast } = useToast();
 showToast('success', 'Title', 'Description message');
 ```
@@ -257,8 +206,8 @@ Severity levels: `success`, `info`, `warn`, `error`
 
 Standard pattern used across components:
 
-```jsx
-const copyToClipboard = (text) => {
+```tsx
+const copyToClipboard = (text: string): void => {
   navigator.clipboard.writeText(text)
     .then(() => showToast('success', 'Copied', 'Link copied'))
     .catch((error) => showToast('error', 'Error', 'Copy failed'));
@@ -269,10 +218,48 @@ const copyToClipboard = (text) => {
 
 Modals follow controlled component pattern:
 
-```jsx
+```tsx
 const [visible, setVisible] = useState(false);
 
 <Dialog visible={visible} onHide={() => setVisible(false)}>
   {/* Content */}
 </Dialog>
+```
+
+---
+
+## Usage in Pages
+
+### index.tsx (Link Generation)
+
+```tsx
+<AlbyButton text="Generate with Alby" handleSubmit={handleAlbySubmit} />
+<MutinyButton
+  text="Generate with Mutiny"
+  disabled={false}
+  handleSubmit={() => setMutinyModalVisible(true)}
+/>
+<MutinyModal
+  mutinyModalVisible={mutinyModalVisible}
+  setMutinyModalVisible={setMutinyModalVisible}
+  // ... other props
+/>
+<LinkModal
+  generatedLinks={generatedLinks}
+  linkModalVisible={linkModalVisible}
+  setLinkModalVisible={setLinkModalVisible}
+/>
+```
+
+### claim/[slug].tsx (Claiming)
+
+```tsx
+<AlbyButton text="Claim with Alby" handleSubmit={handleAlbySubmit} />
+<StrikeButton text="Claim with Strike" handleSubmit={() => setIsStrikeVisible(true)} />
+<MutinyButton text="Claim with Mutiny" handleSubmit={() => setIsMutinyVisible(true)} />
+<CashAppButton text="Claim with CashApp" handleSubmit={() => setIsCashAppVisible(true)} />
+
+<StrikeInstructions isVisible={isStrikeVisible} onHide={() => setIsStrikeVisible(false)} ... />
+<CashAppInstructions isVisible={isCashAppVisible} onHide={() => setIsCashAppVisible(false)} ... />
+<MutinyInstructions isVisible={isMutinyVisible} onHide={() => setIsMutinyVisible(false)} ... />
 ```

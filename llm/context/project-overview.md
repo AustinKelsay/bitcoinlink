@@ -2,7 +2,7 @@
 
 ## What is BitcoinLink?
 
-BitcoinLink is an open-source, non-custodial payment service that allows users to send Bitcoin via shareable links using the Lightning Network. It enables anyone to create single-use payment links that recipients can claim directly to their Lightning wallet.
+BitcoinLink is an open-source, non-custodial payment service that allows users to send Bitcoin via shareable links using the Lightning Network. It uses a **pure Nostr-based architecture** with no backend database.
 
 **Website:** https://bitcoinlink.app
 
@@ -19,25 +19,60 @@ BitcoinLink solves this by:
 3. Recipients claim when convenient using any Lightning-compatible wallet
 4. Funds go directly to recipient (never held by BitcoinLink)
 
+## Architecture: Nostr-Only
+
+**No database. No backend API. Pure Nostr.**
+
+BitcoinLink stores all data on Nostr relays using encrypted events:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         BitcoinLink Architecture                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   ┌──────────────┐        ┌──────────────┐        ┌──────────────┐         │
+│   │   Sender     │        │   BitcoinLink│        │  Nostr       │         │
+│   │   Wallet     │───────▶│   App        │───────▶│  Relays      │         │
+│   │   (Alby/     │  NWC   │  (Frontend)  │ Events │              │         │
+│   │    Mutiny)   │        │              │        │              │         │
+│   └──────────────┘        └──────────────┘        └──────────────┘         │
+│                                  │                       │                  │
+│                                  │                       │                  │
+│                                  ▼                       ▼                  │
+│                           ┌──────────────┐        ┌──────────────┐         │
+│                           │   Shareable  │        │   Gift Wrap  │         │
+│                           │   Link URL   │        │   Event      │         │
+│                           │              │        │   (Kind 1059)│         │
+│                           └──────────────┘        └──────────────┘         │
+│                                                                              │
+│   ┌──────────────┐        ┌──────────────┐        ┌──────────────┐         │
+│   │   Recipient  │        │   BitcoinLink│        │   Sender     │         │
+│   │   Wallet     │◀───────│   App        │◀───────│   Wallet     │         │
+│   │              │ Payment│  (Frontend)  │  NWC   │              │         │
+│   └──────────────┘        └──────────────┘        └──────────────┘         │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
 ## Key Features
 
 ### Non-Custodial Architecture
 - BitcoinLink never holds user funds
 - Payments route directly from sender's wallet to recipient
 - Uses Nostr Wallet Connect (NWC) for wallet authorization
-- Only encrypted connection credentials stored (not funds)
+- NWC credentials stored encrypted on Nostr relays
 
 ### Shareable Payment Links
 - Generate single-use Bitcoin payment links
-- Links include encrypted wallet credentials
+- Links contain encrypted references to NWC credentials
 - Share via any medium (email, SMS, social, QR codes)
-- One-time use prevents double-spending
+- One-time use prevents double-claiming
 
 ### Multiple Wallet Support
 
 **For Senders:**
 - Alby (browser extension)
-- Mutiny (web/mobile via NWA)
+- Mutiny (web/mobile via NWA protocol)
 
 **For Recipients:**
 - Any Lightning address (user@domain.com)
@@ -50,51 +85,77 @@ BitcoinLink solves this by:
 
 ### Batch Link Generation
 - Create multiple links from single wallet connection
-- Set total budget and links-per-budget
-- API endpoint for programmatic link generation
+- Each link is independent (separate gift-wrapped event)
+- Set total budget and per-link amounts
 
 ## How It Works
 
-### Sender Flow
+### Sender Flow (Link Creation)
 ```
 1. User visits bitcoinlink.app
 2. Enters: number of links + sats per link
 3. Connects wallet (Alby or Mutiny)
 4. Wallet approves NWC connection with budget
-5. App encrypts NWC URL with random secret
-6. Stores encrypted URL in database
-7. Generates shareable links with embedded secrets
-8. User shares links with recipients
+5. For each link:
+   a. Create payload: { nwcUrl, amount }
+   b. Generate ephemeral receiver keypair
+   c. Gift-wrap payload (NIP-17 encryption)
+   d. Publish event to Nostr relays
+   e. Create URL: eventId + receiverPrivateKey + relays
+6. Display shareable links to user
 ```
 
-### Recipient Flow
+### Recipient Flow (Claiming)
 ```
 1. Recipient clicks shared link
-2. Link page shows amount available
-3. Recipient enters Lightning address/invoice/LNURL
-4. App decrypts NWC URL using secret from link
-5. App fetches invoice from recipient's wallet
-6. App sends payment via sender's NWC connection
-7. Link deleted after successful payment
+2. App decodes link: eventId, receiverPrivateKey, relays
+3. App checks for deletion event (already claimed?)
+4. App fetches gift-wrap event from relays
+5. App decrypts event using receiver private key
+6. Recipient enters Lightning address/invoice/LNURL
+7. App fetches invoice from recipient's wallet
+8. App pays invoice via NWC (sender's wallet)
+9. App publishes deletion event (NIP-09) to mark claimed
 ```
+
+## Link URL Structure
+
+```
+https://bitcoinlink.app/claim/{base64url_encoded_json}
+```
+
+The encoded JSON contains:
+```json
+{
+  "eventId": "abc123...",           // Gift wrap event ID on relays
+  "receiverPrivateKey": "def456...", // Key to decrypt the event
+  "relays": ["wss://relay.damus.io", ...],
+  "amountSats": 1000                // Display amount (also in payload)
+}
+```
+
+## Nostr Protocol Usage
+
+| NIP | Purpose |
+|-----|---------|
+| NIP-17 | Gift Wrap - encrypts NWC URL in event |
+| NIP-44 | Encryption used by gift wrap |
+| NIP-47 | Nostr Wallet Connect - payment execution |
+| NIP-09 | Deletion events - mark claims |
 
 ## Security Model
 
-### What BitcoinLink Stores
-- Encrypted NWC URLs (useless without secrets)
-- Link metadata (IDs, claimed status)
-
 ### What BitcoinLink Never Stores
-- Decryption secrets (only in link URLs)
+- Decryption keys (only in URLs)
 - User credentials or passwords
 - Private keys
 - Actual Bitcoin
 
 ### Protection Mechanisms
-- AES-256-CBC encryption for NWC URLs
-- Single-use links (deleted after claim)
-- Rate limiting (5 requests per 10 seconds)
-- Invoice amount validation
+- Gift wrap encryption (NIP-17 with NIP-44)
+- Ephemeral keypairs per link
+- Deletion events prevent double-claiming
+- No central database to breach
 
 ## Use Cases
 
@@ -113,42 +174,19 @@ BitcoinLink solves this by:
 - Reward survey participants
 - Airdrop to community members
 
-### API Integration
-- Automated reward distribution
-- Programmatic payment links
-- Integration with other services
+## Technology Stack
 
-## Technical Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     BitcoinLink.app                          │
-├─────────────────────────────────────────────────────────────┤
-│  Frontend (Next.js/React)                                   │
-│  - Link generation UI                                       │
-│  - Link claiming UI                                         │
-│  - Wallet connection flows                                  │
-├─────────────────────────────────────────────────────────────┤
-│  Backend (Next.js API Routes)                               │
-│  - NWC record management                                    │
-│  - Link CRUD operations                                     │
-│  - Payment execution                                        │
-├─────────────────────────────────────────────────────────────┤
-│  Database (PostgreSQL/Prisma)                               │
-│  - Encrypted NWC storage                                    │
-│  - Link tracking                                            │
-├─────────────────────────────────────────────────────────────┤
-│  External Services                                          │
-│  - Nostr relays (NWA auth)                                  │
-│  - Lightning Network (payments)                             │
-│  - Vercel KV (rate limiting)                               │
-└─────────────────────────────────────────────────────────────┘
-```
+| Category | Technology |
+|----------|------------|
+| Framework | Next.js 14, React 18, TypeScript |
+| Nostr | snstr library |
+| UI | Tailwind CSS, PrimeReact |
+| Bitcoin | @getalby/sdk, light-bolt11-decoder, bech32 |
 
 ## Open Source
 
 BitcoinLink is fully open source:
-- Self-hostable
+- Self-hostable (just a Next.js app)
 - Auditable code
 - Community contributions welcome
-- MIT license
+- No backend infrastructure required

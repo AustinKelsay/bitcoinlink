@@ -1,115 +1,47 @@
-# Utility Functions Documentation
+# Utilities Documentation
 
 ## Overview
 
-BitcoinLink utility functions handle Bolt11 Lightning invoice parsing and validation.
-
-## bolt11.js
-
-**Location:** `src/utils/bolt11.js`
-
-### Dependencies
-
-```javascript
-import bolt11 from 'light-bolt11-decoder';
-```
-
-Uses the `light-bolt11-decoder` library for parsing Lightning Network invoices.
+BitcoinLink has a minimal set of utility functions, primarily for Bolt11 invoice parsing. The main utilities are now in `src/lib/nostr/` for Nostr-related functionality.
 
 ---
 
-### getBolt11Description
+## src/utils/bolt11.ts
 
-Extracts the description field from a Bolt11 invoice.
-
-```javascript
-export const getBolt11Description = (bolt11) => {
-  const decoded = bolt11.decode(bolt11);
-  const descriptionSection = decoded.sections.find(
-    section => section.tag === 'd'
-  );
-  return descriptionSection ? descriptionSection.value : null;
-}
-```
-
-**Parameters:**
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `bolt11` | string | Bolt11 encoded invoice string |
-
-**Returns:** `string | null` - Invoice description or null if not present
-
-**Usage:**
-```javascript
-const description = getBolt11Description('lnbc10u1p...');
-// Returns: "Payment for coffee" or null
-```
-
----
-
-### getBolt11Amount
-
-Extracts the amount in satoshis from a Bolt11 invoice.
-
-```javascript
-export const getBolt11Amount = (inv) => {
-  const decoded = bolt11.decode(inv);
-  const amountSection = decoded.sections.find(
-    section => section.name === 'amount'
-  );
-  return amountSection ? amountSection.value / 1000 : null;
-}
-```
-
-**Parameters:**
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `inv` | string | Bolt11 encoded invoice string |
-
-**Returns:** `number | null` - Amount in satoshis or null if not present
-
-**Note:** The decoder returns amount in millisatoshis, so we divide by 1000.
-
-**Usage:**
-```javascript
-const amount = getBolt11Amount('lnbc10u1p...');
-// Returns: 1000 (satoshis)
-```
-
----
+Bolt11 Lightning invoice validation utility.
 
 ### validateBolt11
 
-Validates a Bolt11 invoice for correctness and expiration.
+Validates a Bolt11 invoice format and checks for expiration.
 
-```javascript
-export const validateBolt11 = (inv) => {
+```typescript
+import decode from 'light-bolt11-decoder';
+
+export function validateBolt11(invoice: string): {
+  valid: boolean;
+  reason?: string;
+} {
   try {
-    const decoded = bolt11.decode(inv);
+    const decoded = decode(invoice);
 
     // Check if the invoice has expired
-    const expiryTimestamp = decoded.sections.find(
-      section => section.name === 'timestamp'
-    ).value + decoded.expiry;
-    const currentTimestamp = Math.floor(Date.now() / 1000);
-    if (currentTimestamp > expiryTimestamp) {
+    const timestampSection = decoded.sections.find(
+      (section) => section.name === 'timestamp'
+    );
+    const timestamp = timestampSection?.value;
+    const expiry = decoded.expiry || 3600;
+
+    if (timestamp && Date.now() / 1000 > timestamp + expiry) {
       return { valid: false, reason: 'Invoice has expired' };
     }
 
-    // Check if the invoice has a valid payment hash
+    // Check for valid payment hash
     const paymentHash = decoded.sections.find(
-      section => section.name === 'payment_hash'
-    ).value;
+      (section) => section.name === 'payment_hash'
+    )?.value;
+
     if (!paymentHash || paymentHash.length !== 64) {
       return { valid: false, reason: 'Invalid payment hash' };
-    }
-
-    // Check if the invoice has a valid amount
-    const amountSection = decoded.sections.find(
-      section => section.name === 'amount'
-    );
-    if (!amountSection || isNaN(amountSection.value)) {
-      return { valid: false, reason: 'Invalid amount' };
     }
 
     return { valid: true };
@@ -119,28 +51,12 @@ export const validateBolt11 = (inv) => {
 }
 ```
 
-**Parameters:**
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `inv` | string | Bolt11 encoded invoice string |
+### Usage
 
-**Returns:**
 ```typescript
-{
-  valid: boolean;
-  reason?: string;  // Only present if valid is false
-}
-```
+import { validateBolt11 } from '@/utils/bolt11';
 
-**Validation Checks:**
-1. **Expiration:** Invoice timestamp + expiry vs current time
-2. **Payment Hash:** Must exist and be 64 characters (hex)
-3. **Amount:** Must exist and be a valid number
-4. **Format:** Must be decodable as Bolt11
-
-**Usage:**
-```javascript
-const result = validateBolt11('lnbc10u1p...');
+const result = validateBolt11('lnbc1000n1pj...');
 
 if (result.valid) {
   // Proceed with payment
@@ -148,58 +64,279 @@ if (result.valid) {
   console.error(result.reason);
   // "Invoice has expired"
   // "Invalid payment hash"
-  // "Invalid amount"
   // "Invalid Bolt11 invoice"
+}
+```
+
+### Return Value
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `valid` | `boolean` | Whether invoice is valid |
+| `reason` | `string \| undefined` | Error reason if invalid |
+
+---
+
+## src/lib/nostr/ (Nostr Utilities)
+
+The core utilities are in the Nostr library modules.
+
+### link-encoder.ts
+
+URL encoding/decoding utilities using base64url.
+
+**encodeLink(link: EncodedLink): string**
+
+Encodes link data to URL-safe base64.
+
+```typescript
+import { encodeLink } from '@/lib/nostr';
+
+const encoded = encodeLink({
+  eventId: 'abc123...',
+  receiverPrivateKey: 'def456...',
+  relays: ['wss://relay.damus.io'],
+  amountSats: 1000,
+});
+// Returns: base64url string without padding
+```
+
+**decodeLink(encoded: string): EncodedLink**
+
+Decodes base64url string back to link data.
+
+```typescript
+import { decodeLink } from '@/lib/nostr';
+
+const data = decodeLink('eyJldmVudElkIjo...');
+// Returns: { eventId, receiverPrivateKey, relays, amountSats }
+```
+
+**createClaimUrl(eventId, receiverPrivateKey, amountSats, relays): string**
+
+Creates a full claim URL.
+
+```typescript
+import { createClaimUrl } from '@/lib/nostr';
+
+const url = createClaimUrl(
+  'abc123',
+  'def456',
+  1000,
+  ['wss://relay.damus.io']
+);
+// Returns: https://bitcoinlink.app/claim/{encoded}
+```
+
+**createClaimPath(eventId, receiverPrivateKey, amountSats, relays): string**
+
+Creates a relative claim path (without domain).
+
+```typescript
+import { createClaimPath } from '@/lib/nostr';
+
+const path = createClaimPath('abc123', 'def456', 1000);
+// Returns: /claim/{encoded}
+```
+
+---
+
+### nwc-client.ts
+
+NWC payment utilities.
+
+**payInvoiceWithNWC(nwcUrl, invoice): Promise<PaymentResult>**
+
+Pays a Bolt11 invoice using NWC.
+
+```typescript
+import { payInvoiceWithNWC } from '@/lib/nostr';
+
+const result = await payInvoiceWithNWC(
+  'nostr+walletconnect://...',
+  'lnbc1000n1pj...'
+);
+console.log('Preimage:', result.preimage);
+```
+
+**isValidNWCUrl(nwcUrl: string): boolean**
+
+Validates NWC URL format.
+
+```typescript
+import { isValidNWCUrl } from '@/lib/nostr';
+
+if (isValidNWCUrl(nwcUrl)) {
+  // Valid NWC URL
+}
+```
+
+**getRelaysFromNWCUrl(nwcUrl: string): string[]**
+
+Extracts relay URLs from NWC URL.
+
+```typescript
+import { getRelaysFromNWCUrl } from '@/lib/nostr';
+
+const relays = getRelaysFromNWCUrl('nostr+walletconnect://...');
+// Returns: ['wss://relay.damus.io']
+```
+
+---
+
+### gift-wrap.ts
+
+Gift wrap utilities for link encryption.
+
+**createBitcoinLink(payload): Promise<BitcoinLinkResult>**
+
+Creates a gift-wrapped Bitcoin link.
+
+```typescript
+import { createBitcoinLink } from '@/lib/nostr';
+
+const result = await createBitcoinLink({
+  type: 'bitcoinlink',
+  nwcUrl: 'nostr+walletconnect://...',
+  amount: 1000,
+});
+
+// result.giftWrap - the Nostr event to publish
+// result.receiverPrivateKey - goes in the URL
+// result.receiverPublicKey - the event's p-tag recipient
+```
+
+**decryptBitcoinLink(giftWrap, receiverPrivateKey): BitcoinLinkPayload**
+
+Decrypts a gift-wrapped event.
+
+```typescript
+import { decryptBitcoinLink } from '@/lib/nostr';
+
+const payload = decryptBitcoinLink(event, privateKey);
+// payload.nwcUrl - the NWC URL for payment
+// payload.amount - satoshis
+```
+
+---
+
+## External Utilities Used
+
+### bech32
+
+LNURL decoding in claim page.
+
+```typescript
+import { bech32 } from 'bech32';
+
+const decodeLnurl = (lnurl: string): string | undefined => {
+  try {
+    const { words: dataPart } = bech32.decode(lnurl, 2000);
+    const requestByteArray = bech32.fromWords(dataPart);
+    return new TextDecoder().decode(Uint8Array.from(requestByteArray));
+  } catch {
+    return undefined;
+  }
+};
+```
+
+### snstr
+
+All Nostr cryptographic utilities.
+
+```typescript
+import {
+  generateKeypair,
+  getPublicKey,
+  createDirectMessage,
+  decryptDirectMessage,
+  createDeletionRequest,
+  getEventHash,
+  signEvent,
+  parseNWCURL,
+  NostrWalletConnectClient,
+  GIFT_WRAP_KIND,
+  decryptNIP04,
+} from 'snstr';
+```
+
+---
+
+## Type Definitions
+
+**src/lib/nostr/types.ts:**
+
+```typescript
+export interface BitcoinLinkPayload {
+  type: 'bitcoinlink';
+  nwcUrl: string;
+  amount: number; // sats
+}
+
+export interface BitcoinLinkResult {
+  giftWrap: NostrEvent;
+  receiverPrivateKey: string;
+  receiverPublicKey: string;
+}
+
+export interface EncodedLink {
+  eventId: string;
+  receiverPrivateKey: string;
+  relays: string[];
+  amountSats: number;
+}
+
+export interface LinkInfo {
+  amount: number;
+  isClaimed: boolean;
+}
+
+export interface ParsedInput {
+  type: 'lnurl' | 'invoice' | 'address';
+  data: string;
+}
+
+export interface WebLN {
+  enable: () => Promise<void>;
+  makeInvoice: (args: { amount: number; comment: string }) =>
+    Promise<{ paymentRequest: string }>;
 }
 ```
 
 ---
 
-## Bolt11 Invoice Structure
+## Usage in Claim Page
 
-A decoded Bolt11 invoice contains sections:
+The claim page validates user input before processing:
 
-| Section Name | Tag | Description |
-|--------------|-----|-------------|
-| `timestamp` | - | Invoice creation time (Unix) |
-| `payment_hash` | `p` | 32-byte payment hash (hex) |
-| `amount` | - | Payment amount (millisatoshis) |
-| `description` | `d` | Human-readable description |
-| `expiry` | `x` | Seconds until expiration |
-| `payee` | `n` | Payee public key |
-
-## Usage in BitcoinLink
-
-### Claim Page Validation
-
-The claim page validates user-provided invoices:
-
-```javascript
-// src/pages/claim/[slug].js
+```typescript
+// src/pages/claim/[slug].tsx
 import { validateBolt11 } from '@/utils/bolt11';
 
-if (input.toLowerCase().startsWith('lnbc')) {
-  const valid = validateBolt11(input);
-  if (!valid) {
-    showToast('warn', 'Invalid Invoice', 'This is not a valid invoice.');
-    return false;
+const parseLightningAddress = (input: string): ParsedInput | false => {
+  // LNURL validation
+  if (input.toLowerCase().startsWith('lnurl')) {
+    const decoded = decodeLnurl(input);
+    if (!decoded) return false;
+    return { type: 'lnurl', data: decoded };
   }
-  return { type: 'invoice', data: input };
-}
-```
 
-### API Amount Verification
+  // Bolt11 invoice validation
+  if (input.toLowerCase().startsWith('lnbc')) {
+    const result = validateBolt11(input);
+    if (!result.valid) {
+      showToast('warn', 'Invalid Invoice', result.reason || 'Invalid invoice');
+      return false;
+    }
+    return { type: 'invoice', data: input };
+  }
 
-The claim API verifies invoice amounts match expected values:
+  // Lightning address validation
+  const [username, domain] = input.split('@');
+  if (username && domain && domain.includes('.')) {
+    return { type: 'address', data: input };
+  }
 
-```javascript
-// src/pages/api/claim/[slug].js
-import { getBolt11Amount } from '@/utils/bolt11';
-
-const amountPerLink = nwc.maxAmount / nwc.numLinks;
-const bolt11Amount = getBolt11Amount(invoice);
-
-if (bolt11Amount !== amountPerLink) {
-  return res.status(400).json({ error: 'Invalid invoice amount' });
-}
+  return false;
+};
 ```
