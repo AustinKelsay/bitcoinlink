@@ -18,9 +18,9 @@ export default function Document(): React.ReactElement {
       </Head>
       <body>
         <Main />
+        <Footer />
         <NextScript />
       </body>
-      <Footer />
     </Html>
   );
 }
