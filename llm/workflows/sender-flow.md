@@ -1,322 +1,361 @@
-# Sender Flow: Link Generation Workflow
+# Sender Flow (Link Creation)
 
 ## Overview
 
-This document describes the workflow for generating payment links. Senders connect their Lightning wallet and create shareable links that recipients can claim.
+The sender flow is how users create Bitcoin payment links. The sender connects their wallet, sets the amount and number of links, and receives shareable URLs.
+
+**No database. No API. Pure Nostr.**
 
 ---
 
-## User Interface
+## Visual Flow
 
-### Home Page (`/`)
-
-**Location:** `src/pages/index.js`
-
-```
-┌─────────────────────────────────────────┐
-│            BitcoinLink                  │
-│                                         │
-│  Create single use non-custodial        │
-│  bitcoin links redeemable via Lightning │
-│                                         │
-│  ┌─────────────────────────────────┐   │
-│  │     Number of links: [  10  ]   │   │
-│  └─────────────────────────────────┘   │
-│                                         │
-│  ┌─────────────────────────────────┐   │
-│  │     Sats per link:   [ 100  ]   │   │
-│  └─────────────────────────────────┘   │
-│                                         │
-│  ┌─────────────────────────────────┐   │
-│  │     Generate with Alby          │   │
-│  └─────────────────────────────────┘   │
-│  ┌─────────────────────────────────┐   │
-│  │     Generate with Mutiny        │   │
-│  └─────────────────────────────────┘   │
-│                                         │
-└─────────────────────────────────────────┘
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           SENDER FLOW                                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   1. USER INPUT                                                              │
+│   ┌────────────────────────────────────────┐                                │
+│   │  Number of links: [    5    ]          │                                │
+│   │  Sats per link:   [  1000   ]          │                                │
+│   └────────────────────────────────────────┘                                │
+│                         │                                                    │
+│                         ▼                                                    │
+│   2. WALLET CONNECTION                                                       │
+│   ┌────────────────────────────────────────┐                                │
+│   │  [Generate with Alby]                  │──────┐                         │
+│   │  [Generate with Mutiny]                │──────┤                         │
+│   └────────────────────────────────────────┘      │                         │
+│                                                    ▼                         │
+│   3. WALLET APPROVAL                                                         │
+│   ┌────────────────────────────────────────┐                                │
+│   │  App: bitcoinlink.app                  │                                │
+│   │  Permission: pay_invoice               │                                │
+│   │  Budget: 5000 sats/year                │                                │
+│   │                                        │                                │
+│   │         [Approve]  [Deny]              │                                │
+│   └────────────────────────────────────────┘                                │
+│                         │                                                    │
+│                         ▼ (NWC URL)                                         │
+│   4. LINK GENERATION (for each link)                                        │
+│   ┌────────────────────────────────────────┐                                │
+│   │  a. Create payload { nwcUrl, amount }  │                                │
+│   │  b. Generate receiver keypair          │                                │
+│   │  c. Gift-wrap payload (NIP-17)         │                                │
+│   │  d. Publish event to Nostr relays      │                                │
+│   │  e. Create URL with private key        │                                │
+│   └────────────────────────────────────────┘                                │
+│                         │                                                    │
+│                         ▼                                                    │
+│   5. DISPLAY LINKS                                                           │
+│   ┌────────────────────────────────────────┐                                │
+│   │  Generated Links:                      │                                │
+│   │                                        │                                │
+│   │  https://bitcoinlink.app/claim/eyJ...  │                                │
+│   │  https://bitcoinlink.app/claim/eyK...  │                                │
+│   │  https://bitcoinlink.app/claim/eyL...  │                                │
+│   │                                        │                                │
+│   │         [Copy All]                     │                                │
+│   └────────────────────────────────────────┘                                │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Alby Wallet Flow
+## Step-by-Step Implementation
 
-### Prerequisites
-- Alby browser extension installed
-- Wallet connected to Alby
+### Step 1: User Input
 
-### Step-by-Step Process
+**Location:** `src/pages/index.tsx`
 
-```
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│  1. User     │────▶│  2. Alby     │────▶│  3. App      │
-│  Input       │     │  Connection  │     │  Processing  │
-└──────────────┘     └──────────────┘     └──────────────┘
-                                                  │
-                                                  ▼
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│  6. Display  │◀────│  5. Generate │◀────│  4. Encrypt  │
-│  Links       │     │  Links       │     │  NWC URL     │
-└──────────────┘     └──────────────┘     └──────────────┘
-```
+```tsx
+const [numberOfLinks, setNumberOfLinks] = useState<number | null>(null);
+const [satsPerLink, setSatsPerLink] = useState<number | null>(null);
 
-### 1. User Input
-```javascript
-// State initialization
-const [numberOfLinks, setNumberOfLinks] = useState(null);
-const [satsPerLink, setSatsPerLink] = useState(null);
-
-// Calculate total budget
-const amount = numberOfLinks * satsPerLink;
+// Input fields
+<InputNumber
+  id="number"
+  value={numberOfLinks}
+  onValueChange={(e) => setNumberOfLinks(e.value ?? null)}
+  min={1}
+  max={1000}
+/>
+<InputNumber
+  id="sats"
+  value={satsPerLink}
+  onValueChange={(e) => setSatsPerLink(e.value ?? null)}
+/>
 ```
 
-### 2. Alby NWC Connection
-```javascript
+---
+
+### Step 2: Wallet Connection
+
+#### Alby Flow
+
+```tsx
+import { nwc } from '@getalby/sdk';
+
 const handleAlbySubmit = async () => {
+  // Validate inputs
+  if (!numberOfLinks || numberOfLinks < 1) {
+    showToast('warn', 'Invalid Input', 'Please enter a valid number of links.');
+    return;
+  }
+  if (!satsPerLink || satsPerLink < 1) {
+    showToast('warn', 'Invalid Input', 'Please enter a valid amount of sats per link.');
+    return;
+  }
+
+  // Create NWC client
   const newNwc = nwc.NWCClient.withNewSecret();
   const yearFromNow = new Date();
   yearFromNow.setFullYear(yearFromNow.getFullYear() + 1);
+  const amount = numberOfLinks * satsPerLink;
 
-  const initNwcOptions = {
-    name: "bitcoinlink.app",
+  // Open Alby connection window
+  await newNwc.initNWC({
+    name: 'bitcoinlink.app',
     requestMethods: ['pay_invoice'],
     maxAmount: amount,
     editable: false,
     budgetRenewal: 'never',
     expiresAt: yearFromNow,
-  };
+  });
 
-  await newNwc.initNWC(initNwcOptions);  // Opens Alby popup
-  const newNWCUrl = newNwc.getNostrWalletConnectUrl();
+  // Get NWC URL
+  const nwcUrl = newNwc.getNostrWalletConnectUrl();
+
+  // Generate links
+  const links = await generateLinksFromNWC({
+    nwcUrl,
+    numberOfLinks,
+    satsPerLink,
+  });
+  setGeneratedLinks(links);
+  setLinkModalVisible(true);
 };
 ```
 
-### 3. Encrypt NWC URL
-```javascript
-const encryptNWCUrl = (url) => {
-  const secret = crypto.randomBytes(32).toString('hex');
-  const cipher = crypto.createCipher('aes-256-cbc', secret);
-  let encryptedUrl = cipher.update(url, 'utf8', 'hex');
-  encryptedUrl += cipher.final('hex');
-  return { encryptedUrl, secret };
-};
-```
+#### Mutiny Flow (NWA Protocol)
 
-### 4. Create Database Records
+Mutiny uses Nostr Wallet Auth (NWA)—a QR code / deep link flow:
 
-**One-to-Many NWC (for API):**
-```javascript
-const generateOneToManyNWC = async (newNWCUrl) => {
-  const { encryptedUrl, secret } = encryptNWCUrl(newNWCUrl);
+**Location:** `src/components/mutiny/MutinyModal.tsx`
 
-  const createdNwc = await axios.post('/api/nwc', {
-    url: encryptedUrl,
-    maxAmount: amount,
-    numLinks: numberOfLinks,
-    expiresAt: yearFromNow,
-  });
+```tsx
+import { generateKeypair } from 'snstr';
+import { nip04 } from 'nostr-tools';
 
-  return { oneToManyNwcId: createdNwc.data.id, oneToManySecret: secret };
-};
-```
+// 1. Generate keypair and NWA URI
+const keypair = await generateKeypair();
+const budget = `${numberOfLinks * satsPerLink}/year`;
+const nwaUri = `nostr+walletauth://${keypair.publicKey}?relay=${relayUrl}&secret=${keypair.privateKey}&required_commands=pay_invoice&budget=${budget}`;
 
-**One-to-One Links (for sharing):**
-```javascript
-for (let i = 0; i < numberOfLinks; i++) {
-  const { encryptedUrl, secret } = encryptNWCUrl(newNWCUrl);
+// 2. Display QR code for mobile scanning
+<QRCodeSVG value={nwaUri} />
 
-  // Create NWC record
-  const createdNwc = await axios.post('/api/nwc', {
-    url: encryptedUrl,
-    maxAmount: amount / numberOfLinks,
-    numLinks: 1,
-    expiresAt: yearFromNow,
-  });
+// 3. Or open Mutiny in browser popup
+<MutinyButton text="Open Mutiny Wallet" handleSubmit={() => {
+  window.open(mutinySettingsUrl, 'mutinyWindow', 'width=600,height=700');
+}} />
 
-  // Generate link URL
-  const linkIndex = uuidv4();
-  const link = `bitcoinlink.app/claim/${createdNwc.data.id}?secret=${secret}&linkIndex=${linkIndex}`;
-
-  // Create Link record
-  await axios.post('/api/links', {
-    nwcId: createdNwc.data.id,
-    linkIndex: linkIndex,
-  });
-
-  links.push(link);
-}
-```
-
-### 5. Display Links Modal
-```javascript
-setGeneratedLinks(links);
-setLinkModalVisible(true);
-showToast('success', 'Links Created', 'The links have been created successfully.');
-```
-
----
-
-## Mutiny Wallet Flow
-
-### Prerequisites
-- Mutiny wallet (web or mobile)
-- No browser extension required
-
-### Step-by-Step Process
-
-```
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│  1. Open     │────▶│  2. Display  │────▶│  3. User     │
-│  Modal       │     │  QR / Link   │     │  Approves    │
-└──────────────┘     └──────────────┘     └──────────────┘
-                                                  │
-                                                  ▼
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│  6. Generate │◀────│  5. Decrypt  │◀────│  4. Listen   │
-│  Links       │     │  Response    │     │  for Event   │
-└──────────────┘     └──────────────┘     └──────────────┘
-```
-
-### 1. Generate NWA URI
-```javascript
-// Generate app keypair
-let sk = generatePrivateKey();
-const appPublicKey = getPublicKey(sk);
-const appPrivKey = sk.toString('hex');
-
-// Create random secret
-const secret = crypto.randomBytes(16).toString('hex');
-
-// Build NWA URI
-const nwaUri = `nostr+walletauth://${appPublicKey}?relay=${relayUrl}&secret=${secret}&required_commands=pay_invoice&budget=${budget}&identity=${identity}`;
-
-// Build Mutiny settings URL
-const mutinySettingsUrl = `https://app.mutinywallet.com/settings/connections?nwa=${encodedNwaUri}`;
-```
-
-### 2. Display QR Code
-```javascript
-<QRCodeSVG
-  value={nwaUri}
-  onClick={() => copyToClipboard(nwaUri)}
-  size={400}
-/>
-
-<MutinyButton
-  text="Open Mutiny Wallet"
-  handleSubmit={handleOpenInBrowser}
-/>
-```
-
-### 3. Subscribe to Nostr Events
-```javascript
-const { subscribeToEvents, fetchedEvents } = useSubscribetoEvents();
-
-// Subscribe to NWA response events
+// 4. Subscribe to wallet response events (kind 33194)
 subscribeToEvents([{
   kinds: [33194],
   since: Math.round(Date.now() / 1000),
-  "#d": [appPublicKey]
+  '#d': [appPublicKey],
 }]);
-```
 
-### 4. Process Wallet Response
-```javascript
-useEffect(() => {
-  fetchedEvents.forEach(async (event) => {
-    if (event.tags[0][1] === appPublicKey) {
-      // Decrypt NIP-04 encrypted content
-      const decrypted = await nip04.decrypt(
-        appPrivKey,
-        event.pubkey,
-        event.content
-      );
+// 5. Process response when received
+fetchedEvents.forEach(async (event) => {
+  // Decrypt NIP-04 encrypted response
+  const decrypted = await nip04.decrypt(appPrivKey, event.pubkey, event.content);
+  const { secret } = JSON.parse(decrypted);
 
-      const { secret: responseSecret } = JSON.parse(decrypted);
+  // Construct NWC URL from response
+  const nwcUri = `nostr+walletconnect://${event.pubkey}?relay=${relayUrl}&pubkey=${appPublicKey}&secret=${appPrivKey}`;
 
-      // Verify secret matches
-      if (responseSecret === secret) {
-        // Construct NWC URL
-        const nwcUri = `nostr+walletconnect://${event.pubkey}?relay=${relayUrl}&pubkey=${appPublicKey}&secret=${appPrivKey}`;
-
-        // Generate links
-        await generateLinks(nwcUri);
-      }
-    }
+  // Generate links using the shared utility
+  const links = await generateLinksFromNWC({
+    nwcUrl: nwcUri,
+    numberOfLinks,
+    satsPerLink,
   });
-}, [fetchedEvents, secret]);
+});
 ```
 
 ---
 
-## Link Structure
+### Step 3: Link Generation
 
-### Generated Link URL
+**Location:** `src/lib/nostr/link-generator.ts` (shared utility)
 
+The link generation logic is encapsulated in a shared function used by both Alby and Mutiny flows:
+
+```tsx
+import { generateLinksFromNWC } from '@/lib/nostr';
+
+// In handleAlbySubmit (index.tsx):
+const links = await generateLinksFromNWC({
+  nwcUrl: newNWCUrl,
+  numberOfLinks: numberOfLinks,
+  satsPerLink: satsPerLink,
+});
 ```
-https://bitcoinlink.app/claim/{nwcId}?secret={secret}&linkIndex={linkIndex}
-│                          │          │              │
-│                          │          │              └─ Link identifier
-│                          │          └──────────────── Decryption key
-│                          └─────────────────────────── NWC record ID
-└────────────────────────────────────────────────────── Base URL
+
+**Under the hood** (`src/lib/nostr/link-generator.ts`):
+
+```tsx
+export async function generateLinksFromNWC(
+  options: GenerateLinksOptions
+): Promise<string[]> {
+  const { nwcUrl, numberOfLinks, satsPerLink, relays } = options;
+
+  // Input validation (tested extensively)
+  if (numberOfLinks < 1) throw new Error('numberOfLinks must be at least 1');
+  if (satsPerLink < 1) throw new Error('satsPerLink must be at least 1');
+
+  const client = new BitcoinLinkNostrClient(relays);
+  const links: string[] = [];
+
+  try {
+    await client.connect();
+
+    for (let i = 0; i < numberOfLinks; i++) {
+      const payload: BitcoinLinkPayload = {
+        type: 'bitcoinlink',
+        nwcUrl,
+        amount: satsPerLink,
+      };
+
+      const { giftWrap, receiverPrivateKey } = await createBitcoinLink(payload);
+      await client.publish(giftWrap);
+
+      links.push(createClaimUrl(
+        giftWrap.id,
+        receiverPrivateKey,
+        satsPerLink,
+        client.getRelays()
+      ));
+    }
+
+    return links;
+  } finally {
+    client.close();
+  }
+}
 ```
-
-### Link Parameters
-
-| Parameter | Description | Source |
-|-----------|-------------|--------|
-| `nwcId` | Database ID of encrypted NWC | Prisma CUID |
-| `secret` | AES-256-CBC decryption key | 32-byte random hex |
-| `linkIndex` | Unique link identifier | UUID v4 |
 
 ---
 
-## Database Records Created
+### Step 4: Display Links
 
-### NWC Record
+**Location:** `src/components/LinkModal.tsx`
+
+```tsx
+<Dialog header="Generated Links" visible={linkModalVisible}>
+  <Button label="Copy All" onClick={copyAllLinks} />
+  {generatedLinks.map((link, index) => (
+    <div key={index}>
+      <a href={link} target="_blank">{link}</a>
+      <Button icon="pi pi-copy" onClick={() => copyToClipboard(link)} />
+    </div>
+  ))}
+</Dialog>
+```
+
+---
+
+## What Gets Created
+
+### Gift Wrap Event (Published to Nostr Relays)
+
 ```json
 {
-  "id": "clwf9yz6n00001jgso4nmruxe",
-  "url": "encrypted_nwc_url_hex...",
-  "expiresAt": "2025-05-15T00:00:00.000Z",
-  "maxAmount": 1000,
-  "numLinks": 10
+  "kind": 1059,
+  "pubkey": "ephemeral_sender_pubkey",
+  "content": "<NIP-44 encrypted seal containing rumor>",
+  "tags": [["p", "receiver_pubkey"]],
+  "created_at": 1234567890,
+  "id": "event_id_abc123",
+  "sig": "signature"
 }
 ```
 
-### Link Record
+Inside the encrypted content (the rumor):
 ```json
 {
-  "id": "clwfa1234500001jgso4abcde",
-  "linkIndex": "550e8400-e29b-41d4-a716-446655440000",
-  "nwcId": "clwf9yz6n00001jgso4nmruxe",
-  "isClaimed": false,
-  "wasServedAPI": false
+  "type": "bitcoinlink",
+  "nwcUrl": "nostr+walletconnect://...",
+  "amount": 1000
 }
 ```
+
+### Shareable URL
+
+```text
+https://bitcoinlink.app/claim/eyJldmVudElkIjoiYWJjMTIz...
+```
+
+Decoded (base64url → JSON):
+```json
+{
+  "eventId": "event_id_abc123",
+  "receiverPrivateKey": "<receiver_private_key_hex>",
+  "relays": ["wss://relay.damus.io", "wss://nos.lol", ...],
+  "amountSats": 1000
+}
+```
+
+---
+
+## Data Storage
+
+### Where Data Lives
+
+| Data | Location |
+|------|----------|
+| NWC URL + Amount | Encrypted in gift wrap event on Nostr relays |
+| Receiver Private Key | Only in the shareable URL |
+| Event ID | In URL and on relays |
+| Relay List | In URL |
+
+### Nothing Stored Server-Side
+
+- No database records
+- No API calls
+- No session state
+- Everything is on Nostr relays
 
 ---
 
 ## Error Handling
 
-### Common Errors
+| Scenario | Handling |
+|----------|----------|
+| Invalid input | Toast warning, prevent submission |
+| Wallet declined | Toast warning, user can retry |
+| Relay publish failed | Error toast, links not created |
+| NWC connection timeout | Error toast, user can retry |
 
-| Error | Cause | Recovery |
-|-------|-------|----------|
-| Prompt closed | User cancelled Alby popup | Show warning toast |
-| Error Creating NWC | Database error | Show error toast, retry |
-| Error Creating Link | Database error | Show error toast, retry |
-| No NWC url returned | Wallet connection failed | Show error toast |
-
-### Error Handling Code
-
-```javascript
+```tsx
 try {
   await newNwc.initNWC(initNwcOptions);
-  // ... success flow
 } catch (e) {
   console.warn('Prompt closed', e);
-  showToast('warn', 'Prompt Closed', 'The prompt was closed without completing the action.');
+  showToast('warn', 'Prompt Closed', 'The prompt was closed without completing.');
 }
 ```
+
+---
+
+## Security Considerations
+
+1. **NWC URL is sensitive** - Encrypted in gift wrap using NIP-17
+2. **Private key only in URL** - Never stored; user must protect the link
+3. **Ephemeral keypairs** - New keys for each link, no identity leak
+4. **Budget limits** - User approves specific budget in wallet approval
+5. **Timestamps randomized** - Gift wrap obfuscates creation time

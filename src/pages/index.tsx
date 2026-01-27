@@ -5,17 +5,10 @@ import { ProgressSpinner } from 'primereact/progressspinner';
 import AlbyButton from '@/components/AlbyButton';
 import MutinyButton from '@/components/mutiny/MutinyButton';
 import MutinyModal from '@/components/mutiny/MutinyModal';
-import axios from 'axios';
-import { encryptNWCUrl } from '@/utils/crypto-browser';
 import { useToast } from '@/hooks/useToast';
-import { v4 as uuidv4 } from 'uuid';
 import 'primeicons/primeicons.css';
 import LinkModal from '@/components/LinkModal';
-
-interface OneToManyNWCResult {
-  oneToManyNwcId: string;
-  oneToManySecret: string;
-}
+import { generateLinksFromNWC } from '@/lib/nostr';
 
 export default function Home(): React.ReactElement {
   const [numberOfLinks, setNumberOfLinks] = useState<number | null>(null);
@@ -23,40 +16,24 @@ export default function Home(): React.ReactElement {
   const [linkModalVisible, setLinkModalVisible] = useState(false);
   const [mutinyModalVisible, setMutinyModalVisible] = useState(false);
   const [generatedLinks, setGeneratedLinks] = useState<string[]>([]);
-  const [oneToManyNwcId, setOneToManyNwcId] = useState('');
-  const [oneToManySecret, setOneToManySecret] = useState('');
   const [generatingLinks, setGeneratingLinks] = useState(false);
-  const [secret, setSecret] = useState('');
 
   const { showToast } = useToast();
 
-  const generateOneToManyNWC = async (
-    newNWCUrl: string
-  ): Promise<OneToManyNWCResult | undefined> => {
-    const { encryptedUrl, secret: newSecret } = await encryptNWCUrl(newNWCUrl);
-    setSecret(newSecret);
-
-    const yearFromNow = new Date();
-    yearFromNow.setFullYear(yearFromNow.getFullYear() + 1);
-    const amount = (numberOfLinks ?? 0) * (satsPerLink ?? 0);
-
-    const createdNwc = await axios.post('/api/nwc', {
-      url: encryptedUrl,
-      maxAmount: amount,
-      numLinks: numberOfLinks,
-      expiresAt: yearFromNow,
-    });
-
-    if (createdNwc.status === 201 && createdNwc.data?.id) {
-      return { oneToManyNwcId: createdNwc.data.id, oneToManySecret: newSecret };
-    }
-  };
-
   const handleAlbySubmit = async (): Promise<void> => {
+    if (!numberOfLinks || numberOfLinks < 1 || !Number.isInteger(numberOfLinks)) {
+      showToast('warn', 'Invalid Input', 'Please enter a valid whole number of links.');
+      return;
+    }
+    if (!satsPerLink || satsPerLink < 1 || !Number.isInteger(satsPerLink)) {
+      showToast('warn', 'Invalid Input', 'Please enter a valid whole number of sats per link.');
+      return;
+    }
+
     const newNwc = nwc.NWCClient.withNewSecret();
     const yearFromNow = new Date();
     yearFromNow.setFullYear(yearFromNow.getFullYear() + 1);
-    const amount = (numberOfLinks ?? 0) * (satsPerLink ?? 0);
+    const amount = numberOfLinks * satsPerLink;
 
     try {
       await newNwc.initNWC({
@@ -72,59 +49,30 @@ export default function Home(): React.ReactElement {
 
       if (newNWCUrl) {
         setGeneratingLinks(true);
-        // first generate the one-to-many NWC with links for the API
-        const result = await generateOneToManyNWC(newNWCUrl);
-        if (result) {
-          setOneToManyNwcId(result.oneToManyNwcId);
-          setOneToManySecret(result.oneToManySecret);
-        }
 
-        // Then generate the one-to-one NWC and links for the user
-        const links: string[] = [];
-        for (let i = 0; i < (numberOfLinks ?? 0); i++) {
-          const { encryptedUrl, secret: linkSecret } = await encryptNWCUrl(newNWCUrl);
-
-          const createdNwc = await axios.post('/api/nwc', {
-            url: encryptedUrl,
-            maxAmount: amount / (numberOfLinks ?? 1),
-            numLinks: 1,
-            expiresAt: yearFromNow,
+        try {
+          const links = await generateLinksFromNWC({
+            nwcUrl: newNWCUrl,
+            numberOfLinks: numberOfLinks!,
+            satsPerLink: satsPerLink!,
           });
-
-          if (createdNwc.status === 201 && createdNwc.data?.id) {
-            const linkIndex = uuidv4();
-            const link = `bitcoinlink.app/claim/${createdNwc.data?.id}?secret=${linkSecret}&linkIndex=${linkIndex}`;
-            links.push(link);
-            const createdLink = await axios.post('/api/links', {
-              nwcId: createdNwc.data.id,
-              linkIndex: linkIndex,
-            });
-
-            if (createdLink.status === 201) {
-              continue;
-            } else {
-              showToast(
-                'error',
-                'Error Creating Link',
-                'An error occurred while creating a link. Please try again.'
-              );
-            }
-          } else {
-            showToast(
-              'error',
-              'Error Creating NWC',
-              'An error occurred while creating the NWC. Please try again.'
-            );
-          }
+          setGeneratedLinks(links);
+          setLinkModalVisible(true);
+          showToast(
+            'success',
+            'Links Created',
+            'The links have been created successfully.'
+          );
+        } catch (error) {
+          console.error('Error generating links:', error);
+          showToast(
+            'error',
+            'Error Creating Links',
+            'An error occurred while creating the links. Please try again.'
+          );
+        } finally {
+          setGeneratingLinks(false);
         }
-        setGeneratedLinks(links);
-        setGeneratingLinks(false);
-        setLinkModalVisible(true);
-        showToast(
-          'success',
-          'Links Created',
-          'The links have been created successfully.'
-        );
       } else {
         throw new Error('No NWC url returned');
       }
@@ -195,7 +143,6 @@ export default function Home(): React.ReactElement {
           setMutinyModalVisible={setMutinyModalVisible}
           setLinkModalVisible={setLinkModalVisible}
           setGeneratedLinks={setGeneratedLinks}
-          generatingLinks={generatingLinks}
           setGeneratingLinks={setGeneratingLinks}
           numberOfLinks={numberOfLinks ?? 0}
           satsPerLink={satsPerLink ?? 0}
@@ -207,9 +154,6 @@ export default function Home(): React.ReactElement {
           generatedLinks={generatedLinks}
           linkModalVisible={linkModalVisible}
           setLinkModalVisible={setLinkModalVisible}
-          secret={secret}
-          oneToManyNwcId={oneToManyNwcId}
-          oneToManySecret={oneToManySecret}
         />
       )}
     </main>

@@ -3,28 +3,47 @@
 ## Core Framework
 
 ### Next.js 14.2.3
-- Full-stack React framework
-- Server-side rendering and API routes
-- File-based routing
-- Built-in optimization
+- React framework with Pages Router
+- Client-side only (no SSR required)
+- Static export capable
 
 ### React 18
-- Frontend UI library
 - Hooks-based architecture
-- Context for state management
+- Context for state (ToastProvider)
 
-## Database
+### TypeScript 5.9.3
+- Type-safe development
+- Compile-time error checking
 
-### PostgreSQL
-- Primary data store
-- Relational database
-- Hosted on Vercel Postgres (production)
+## Nostr Protocol
 
-### Prisma 5.13.0
-- ORM (Object-Relational Mapping)
-- Type-safe database queries
-- Schema management and migrations
-- Packages: `@prisma/client`, `prisma` (dev)
+### snstr (local dependency)
+Primary Nostr library providing all protocol features:
+
+**Gift Wrap (NIP-17):**
+```typescript
+import { createDirectMessage, decryptDirectMessage, GIFT_WRAP_KIND } from 'snstr';
+```
+
+**NWC (NIP-47):**
+```typescript
+import { NostrWalletConnectClient, parseNWCURL } from 'snstr';
+```
+
+**Key Management:**
+```typescript
+import { generateKeypair, getPublicKey } from 'snstr';
+```
+
+**Deletion Events (NIP-09):**
+```typescript
+import { createDeletionRequest, getEventHash, signEvent } from 'snstr';
+```
+
+### nostr-tools 1.17.0
+- Legacy Nostr protocol implementation
+- Used for SimplePool in Mutiny NWA flow
+- Provides NIP-04 encryption for wallet auth
 
 ## UI & Styling
 
@@ -36,19 +55,24 @@
 ### PrimeReact 10.2.1
 - React component library
 - Pre-built UI components
-- Used for: Dialog, Button, InputText, TabView, Toast, ProgressSpinner
+- Used for: Dialog, Button, InputText, InputNumber, ProgressSpinner, Toast
 
 ### PrimeIcons 6.0.1
 - Icon library for PrimeReact
 - Font-based icons
 
+### qrcode.react 3.1.0
+- QR code React component
+- Used for Mutiny NWA URI display
+- SVG-based rendering
+
 ## Bitcoin & Lightning
 
 ### @getalby/sdk 3.5.0
 - Alby wallet integration
-- NWC (Nostr Wallet Connect) client
-- WebLN provider for payments
-- Used for: `nwc.NWCClient`, `webln.NostrWebLNProvider`
+- NWC client for generating wallet connections
+- WebLN provider detection
+- Used for: `nwc.NWCClient.withNewSecret()`, `initNWC()`
 
 ### light-bolt11-decoder 3.1.1
 - Bolt11 Lightning invoice parser
@@ -60,77 +84,21 @@
 - Used for LNURL decoding
 - Lightning address processing
 
-## Nostr Protocol
-
-### nostr-tools 1.17.0
-- Nostr protocol implementation
-- Key generation and management
-- Event signing and verification
-- NIP-04 encryption/decryption
-- SimplePool for relay connections
-- Used for: `SimplePool`, `nip04`, `generatePrivateKey`, `getPublicKey`
-
-### websocket-polyfill 1.0.0
-- WebSocket polyfill for Node.js
-- Required for server-side Nostr connections
-
-## HTTP & Networking
-
-### axios 1.6.8
-- HTTP client
-- API requests from frontend
-- Used for internal API calls
-
-### cross-fetch 4.0.0
-- Isomorphic fetch implementation
-- Works in browser and Node.js
-- Used for server-side HTTP requests
-
-## Utilities
-
-### uuid 9.0.1
-- UUID generation
-- Used for link index generation
-- `v4` function for random UUIDs
-
-### qrcode.react 3.1.0
-- QR code React component
-- Used for Mutiny NWA URI display
-- SVG-based rendering
-
-### crypto (Node.js built-in)
-- Cryptographic functions
-- AES-256-CBC encryption/decryption
-- Random bytes generation
-
-## Rate Limiting
-
-### @upstash/ratelimit 1.2.1
-- Redis-based rate limiting
-- Sliding window algorithm
-- Serverless-friendly
-
-### @vercel/kv 2.0.0
-- Vercel KV (Redis) client
-- Storage for rate limit state
-- Serverless key-value store
-
 ## Development Dependencies
 
+### Jest 29.7.0
+Testing framework with comprehensive coverage:
+- **ts-jest 29.1.1** for TypeScript support
+- **@types/jest 29.5.11** for type definitions
+- 8 test files, 131 tests
+- Unit, validation, integration, and security edge case tests
+
 ### ESLint 8.x
-- JavaScript linter
-- Code quality enforcement
+- JavaScript/TypeScript linter
 - `eslint-config-next` for Next.js rules
 
 ### PostCSS 8.x
-- CSS processing
-- Required by Tailwind CSS
-- Autoprefixer integration
-
-### TypeScript Types
-- `@types/node 20.14.10`
-- Node.js type definitions
-- Development-time type checking
+- CSS processing (required by Tailwind)
 
 ## Package.json Scripts
 
@@ -138,10 +106,10 @@
 {
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build && prisma migrate deploy",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "prisma generate"
+    "test": "jest"
   }
 }
 ```
@@ -152,34 +120,35 @@
 bitcoinlink
 ├── Framework
 │   ├── next (14.2.3)
-│   └── react (18.x)
-├── Database
-│   ├── @prisma/client (5.13.0)
-│   └── prisma (5.13.0) [dev]
+│   ├── react (18.x)
+│   └── typescript (5.9.3)
+├── Nostr
+│   ├── snstr (local) - Primary
+│   └── nostr-tools (1.17.0) - Legacy/NWA
 ├── UI
 │   ├── primereact (10.2.1)
 │   ├── primeicons (6.0.1)
-│   └── tailwindcss (3.4.1) [dev]
-├── Bitcoin/Lightning
-│   ├── @getalby/sdk (3.5.0)
-│   ├── light-bolt11-decoder (3.1.1)
-│   └── bech32 (2.0.0)
-├── Nostr
-│   ├── nostr-tools (1.17.0)
-│   └── websocket-polyfill (1.0.0)
-├── HTTP
-│   ├── axios (1.6.8)
-│   └── cross-fetch (4.0.0)
-├── Utilities
-│   ├── uuid (9.0.1)
+│   ├── tailwindcss (3.4.1)
 │   └── qrcode.react (3.1.0)
-└── Rate Limiting
-    ├── @upstash/ratelimit (1.2.1)
-    └── @vercel/kv (2.0.0)
+└── Bitcoin/Lightning
+    ├── @getalby/sdk (3.5.0)
+    ├── light-bolt11-decoder (3.1.1)
+    └── bech32 (2.0.0)
 ```
+
+## What's NOT Used (Removed in Refactor)
+
+The following were removed when migrating to the Nostr-only architecture:
+- PostgreSQL / any database
+- Prisma ORM
+- API routes for CRUD operations
+- Rate limiting (@upstash/ratelimit, @vercel/kv)
+- Server-side middleware
+- axios (replaced with native fetch)
+- Server-side encryption (now handled by NIP-17 gift wrap)
 
 ## Version Compatibility Notes
 
-- **nostr-tools 1.17.0**: Specific version used; newer versions may have breaking changes
-- **Prisma**: Binary targets configured for `native` and `debian-openssl-1.1.x`
+- **snstr**: Local dependency from `../snstr` - must be available
+- **nostr-tools 1.17.0**: Specific version for compatibility with snstr
 - **Next.js 14**: Uses Pages Router (not App Router)

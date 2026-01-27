@@ -2,194 +2,219 @@
 
 ## Overview
 
-BitcoinLink implements a non-custodial security model where the service never holds users' Bitcoin. Security is achieved through encryption, single-use links, and rate limiting.
+BitcoinLink implements a non-custodial security model using Nostr protocol features. The service never holds users' Bitcoin and relies on cryptographic encryption for security.
+
+---
 
 ## Non-Custodial Architecture
 
 BitcoinLink never has access to user funds:
 
-1. **Sender's wallet** holds the Bitcoin
-2. **NWC connection** authorizes payments from sender's wallet
-3. **Payment** goes directly from sender's wallet to recipient
-4. **Service** only facilitates the connection
-
-```
-Sender's Wallet ──NWC Protocol──▶ BitcoinLink ──Lightning──▶ Recipient's Wallet
-       │                              │
-       │                              │
-       ▼                              ▼
-   Holds funds               Never holds funds
-```
-
-## Encryption
-
-### AES-256-CBC for NWC URLs
-
-NWC URLs contain sensitive wallet connection credentials and are encrypted before storage.
-
-**Encryption (client-side):**
-```javascript
-// Location: src/pages/index.js
-const encryptNWCUrl = (url) => {
-  const secret = crypto.randomBytes(32).toString('hex');
-  const cipher = crypto.createCipher('aes-256-cbc', secret);
-  let encryptedUrl = cipher.update(url, 'utf8', 'hex');
-  encryptedUrl += cipher.final('hex');
-  return { encryptedUrl, secret };
-};
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                    Payment Flow                                  │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   Sender's Wallet ──NWC Protocol──▶ Recipient's Wallet          │
+│         │                                │                       │
+│         │                                │                       │
+│         ▼                                ▼                       │
+│    Holds funds                    Receives funds                │
+│                                                                  │
+│                    BitcoinLink App                               │
+│                          │                                       │
+│                          ▼                                       │
+│                   Never holds funds                              │
+│                   Only facilitates connection                    │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-**Decryption (server-side):**
-```javascript
-// Location: src/pages/api/claim/[slug].js
-const decryptNWCUrl = (encryptedUrl, secret) => {
-  const decipher = crypto.createDecipher('aes-256-cbc', secret);
-  let decryptedUrl = decipher.update(encryptedUrl, 'hex', 'utf8');
-  decryptedUrl += decipher.final('utf8');
-  return decryptedUrl;
-};
+---
+
+## Encryption: NIP-17 Gift Wrap
+
+NWC URLs are protected using multi-layer encryption via gift wrap.
+
+### Gift Wrap Structure
+
+```text
+┌─────────────────────────────────────┐
+│ Gift Wrap (Kind 1059)               │
+│ - pubkey: EPHEMERAL (random)        │  ← Hides sender identity
+│ - content: NIP-44 encrypted seal    │
+│ - tags: [["p", receiver_pubkey]]    │
+├─────────────────────────────────────┤
+│ Seal (Kind 13)                      │
+│ - pubkey: ephemeral sender          │
+│ - content: NIP-44 encrypted rumor   │
+│ - signed by sender                  │
+├─────────────────────────────────────┤
+│ Rumor (Kind 14)                     │
+│ - content: { nwcUrl, amount }       │  ← Actual sensitive data
+└─────────────────────────────────────┘
 ```
 
-### Key Points
+### Encryption Flow
 
-- **32-byte random secret** generated per NWC
-- **Secret stored in URL only** (never in database)
-- **Encrypted URL stored in database**
-- **Decryption happens at claim time** using secret from URL
+**Creating a link:**
+```typescript
+// src/lib/nostr/gift-wrap.ts
+export async function createBitcoinLink(
+  payload: BitcoinLinkPayload
+): Promise<BitcoinLinkResult> {
+  const receiver = await generateKeypair();  // Private key → URL
+  const sender = await generateKeypair();    // Ephemeral, discarded
+
+  const giftWrap = await createDirectMessage(
+    JSON.stringify(payload),
+    sender.privateKey,
+    receiver.publicKey
+  );
+
+  return {
+    giftWrap,
+    receiverPrivateKey: receiver.privateKey,
+    receiverPublicKey: receiver.publicKey,
+  };
+}
+```
+
+**Decrypting a link:**
+```typescript
+export function decryptBitcoinLink(
+  giftWrap: NostrEvent,
+  receiverPrivateKey: string
+): BitcoinLinkPayload {
+  if (giftWrap.kind !== GIFT_WRAP_KIND) {
+    throw new Error(`Invalid event kind: expected ${GIFT_WRAP_KIND}`);
+  }
+  
+  const rumor = decryptDirectMessage(giftWrap, receiverPrivateKey);
+  const payload = JSON.parse(rumor.content);
+  validatePayload(payload);  // Validates type, nwcUrl, amount
+  return payload;
+}
+```
+
+---
 
 ## Secret Handling
 
-```
-┌────────────────┐         ┌─────────────────┐
-│   Generation   │         │    Database     │
-├────────────────┤         ├─────────────────┤
-│ Random secret  │         │ Encrypted URL   │
-│ generated      │────────▶│ stored          │
-│ client-side    │         │ (no secret)     │
-└───────┬────────┘         └─────────────────┘
-        │
-        ▼
-┌────────────────┐         ┌─────────────────┐
-│   Shareable    │         │   Claim Time    │
-│   Link         │         ├─────────────────┤
-├────────────────┤         │ Secret from URL │
-│ Contains:      │────────▶│ decrypts NWC    │
-│ - NWC ID       │         │ URL for payment │
-│ - Secret       │         └─────────────────┘
-│ - Link Index   │
-└────────────────┘
+### What's in the URL
+
+```text
+https://bitcoinlink.app/claim/{base64url}
+                              │
+                              ▼
+┌─────────────────────────────────────────────┐
+│ Decoded JSON:                               │
+│ {                                           │
+│   "eventId": "abc123...",       ← Find event│
+│   "receiverPrivateKey": "def...",← Decrypt  │
+│   "relays": ["wss://..."],                  │
+│   "amountSats": 1000                        │
+│ }                                           │
+└─────────────────────────────────────────────┘
 ```
 
-## Rate Limiting
+### What's Stored on Relays
 
-**Location:** `middleware.js`
-
-Uses Upstash sliding window rate limiting:
-
-```javascript
-import { Ratelimit } from '@upstash/ratelimit';
-import { kv } from '@vercel/kv';
-
-const ratelimit = new Ratelimit({
-  redis: kv,
-  limiter: Ratelimit.slidingWindow(5, '10 s'),
-});
-
-// Applied to all API routes
-const { success } = await ratelimit.limit(ip);
+```text
+┌─────────────────────────────────────────────┐
+│ Gift Wrap Event (Kind 1059)                 │
+│                                             │
+│ - Encrypted content (useless without key)   │
+│ - Ephemeral pubkeys (no identity leak)      │
+│ - Randomized timestamp                      │
+│                                             │
+│ Contains (when decrypted):                  │
+│ - NWC URL (access to sender's wallet)       │
+│ - Amount (sats)                             │
+└─────────────────────────────────────────────┘
 ```
 
-**Configuration:**
-- **Limit:** 5 requests
-- **Window:** 10 seconds
-- **Scope:** Per IP address
-- **Storage:** Vercel KV (Redis)
+### Security Properties
 
-## Referer Validation
+| Data | Stored In | Accessible By |
+|------|-----------|---------------|
+| Receiver Private Key | URL only | Anyone with link |
+| NWC URL | Encrypted on relay | Only with private key |
+| Event ID | URL and relay | Public (but useless alone) |
 
-**Location:** `middleware.js`
+---
 
-The middleware enforces referer header validation to prevent unauthorized API access:
+## Claim Protection: NIP-09 Deletion
 
-```javascript
-const allowedBaseReferer = 'https://www.bitcoinlink.app';
+Deletion events prevent double-claiming.
 
-// Bypass for production hostnames
-if (hostname === 'www.bitcoinlink.app' || hostname === 'bitcoinlink.app') {
-  return NextResponse.next();
+### How It Works
+
+```text
+Before Claim:
+┌───────────────┐
+│ Gift Wrap     │  Event exists
+│ Event         │  No deletion event
+└───────────────┘
+
+After Claim:
+┌───────────────┐     ┌───────────────┐
+│ Gift Wrap     │     │ Deletion      │
+│ Event         │     │ Event (K:5)   │
+│               │ ←── │ #e: eventId   │
+└───────────────┘     └───────────────┘
+```
+
+### Implementation
+
+**Publishing deletion after payment:**
+```typescript
+// src/lib/nostr/client.ts
+async publishDeletion(eventId: string, privateKey: string): Promise<void> {
+  const { createDeletionRequest, getPublicKey, signEvent, getEventHash } =
+    await import('snstr');
+
+  const pubkey = getPublicKey(privateKey);
+  const unsignedEvent = createDeletionRequest(
+    { ids: [eventId], content: 'Link claimed' },
+    pubkey
+  );
+
+  const id = await getEventHash(unsignedEvent);
+  const sig = await signEvent(id, privateKey);
+
+  await this.client.publishEvent({ ...unsignedEvent, id, sig });
 }
+```
 
-// Bypass referer check for /link paths (only rate limited)
-if (request.nextUrl.pathname.startsWith('/link')) {
-  const { success } = await ratelimit.limit(ip);
-  return success ? NextResponse.next() : NextResponse.redirect(new URL('/blocked', request.url));
-}
-
-// Apply referer check for all other routes
-if (!referer.startsWith(allowedBaseReferer)) {
-  return new NextResponse(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
+**Checking if claimed:**
+```typescript
+async hasDeletionEvent(eventId: string, receiverPubkey: string): Promise<boolean> {
+  // Subscribe to kind 5 events with #e tag matching eventId
+  // If any event found, link was claimed
 }
 ```
 
-**Configuration:**
-- **Allowed Referer:** `https://www.bitcoinlink.app`
-- **Bypass:** Requests from production hostnames (`www.bitcoinlink.app`, `bitcoinlink.app`)
-- **Bypass:** Paths starting with `/link` (only rate limited, no referer check)
-- **Response:** 403 Forbidden with JSON error if referer doesn't match
+---
 
 ## Invoice Validation
 
-Before executing payment, the server validates the invoice:
+Before executing payment, the claim page validates user input:
 
-```javascript
-// Location: src/pages/api/claim/[slug].js
-const amountPerLink = nwc.maxAmount / nwc.numLinks;
-const bolt11Amount = getBolt11Amount(invoice);
-
-if (bolt11Amount !== amountPerLink) {
-  return res.status(400).json({ error: 'Invalid invoice amount' });
-}
-```
-
-This prevents:
-- Overpayment attacks
-- Underpayment attempts
-- Invoice manipulation
-
-## Single-Use Links
-
-Links are deleted immediately after successful payment:
-
-```javascript
-// After successful payment
-const deletedLink = await deleteLink(link.id);
-
-// For 1:1 links, also delete NWC
-const deleted = await deleteNwc(slug);
-```
-
-**Protection against:**
-- Double-spending
-- Link reuse
-- Replay attacks
-
-## Input Validation
-
-### Lightning Address Parsing
-
-**Location:** `src/pages/claim/[slug].js`
-
-```javascript
-const parseLightningAddress = (input) => {
+```typescript
+// src/pages/claim/[slug].tsx
+const parseLightningAddress = (input: string): ParsedInput | false => {
   // LNURL validation
   if (input.toLowerCase().startsWith('lnurl')) {
     const decoded = decodeLnurl(input);
+    if (!decoded) return false;
     return { type: 'lnurl', data: decoded };
   }
 
   // Bolt11 invoice validation
   if (input.toLowerCase().startsWith('lnbc')) {
-    const valid = validateBolt11(input);
+    const result = validateBolt11(input);
+    if (!result.valid) return false;
     return { type: 'invoice', data: input };
   }
 
@@ -203,22 +228,76 @@ const parseLightningAddress = (input) => {
 };
 ```
 
+---
+
+## Privacy Features
+
+### Gift Wrap Provides
+
+- **Sender anonymity:** Ephemeral pubkeys for each link
+- **Timestamp obfuscation:** Randomized up to 2 days in past (handled by snstr's `createDirectMessage`)
+- **Content encryption:** NIP-44 (modern, secure encryption)
+
+> **Note:** The gift-wrap timestamp is intentionally randomized by snstr to prevent timing analysis attacks. When validating received gift-wraps, do NOT reject events based on timestamp age alone—the randomization is a privacy feature, not a bug. However, extremely old timestamps (beyond the 2-day window) should be treated with caution as they may indicate replay attacks.
+
+### What's NOT Logged
+
+- No user accounts
+- No IP tracking
+- No analytics
+- No server-side logging (client-only app)
+
+---
+
 ## Security Checklist
 
 | Threat | Mitigation |
 |--------|------------|
 | Fund custody | Non-custodial NWC architecture |
-| Credential theft | AES-256-CBC encryption |
-| Database breach | Secrets not stored in DB |
-| Brute force | Rate limiting (5/10s) |
-| Unauthorized API access | Referer validation |
-| Invoice manipulation | Amount validation |
-| Link reuse | Single-use deletion |
-| Replay attacks | Link deletion after claim |
+| Credential theft | NIP-17 gift wrap encryption |
+| Relay breach | Encrypted content useless without key |
+| Link reuse | NIP-09 deletion events |
+| Double-claim | Deletion check before showing claim UI |
+| Invoice manipulation | Bolt11 validation |
+| NWC URL exposure | Only accessible with private key from URL |
 
-## Recommendations
+---
 
-1. **HTTPS Required**: All production traffic must use HTTPS
-2. **Secret Rotation**: Consider shorter NWC expiration times
-3. **Monitoring**: Log failed claim attempts for analysis
-4. **Budget Limits**: Set reasonable maxAmount limits
+## Attack Vectors & Mitigations
+
+### 1. URL Interception
+**Threat:** Attacker intercepts link URL
+**Mitigation:** Treat links like private keys - share securely
+
+### 2. Relay Compromise
+**Threat:** Attacker gains access to relay data
+**Mitigation:** Content is encrypted; useless without receiver private key
+
+### 3. Replay Attack
+**Threat:** Attacker replays claim transaction
+**Mitigation:** Deletion event published after successful claim
+
+### 4. Brute Force Decryption
+**Threat:** Attacker tries to decrypt event
+**Mitigation:** NIP-44 uses modern cryptography (XChaCha20-Poly1305)
+
+---
+
+## Recommendations for Users
+
+1. **Treat links like cash:** Once shared, anyone with the link can claim
+2. **Use secure channels:** Don't share links in public channels
+3. **Set appropriate budgets:** Only approve the budget you intend to give away
+4. **Check wallet NWC permissions:** Ensure only `pay_invoice` is granted
+5. **Monitor NWC connections:** Review and revoke unused connections
+
+---
+
+## What's NOT Implemented (By Design)
+
+| Feature | Reason |
+|---------|--------|
+| Rate limiting | Client-side app; no server to rate limit |
+| Server-side validation | No server; all validation is client-side |
+| User authentication | Non-custodial; no user accounts needed |
+| Audit logging | Client-only; no server to log on |

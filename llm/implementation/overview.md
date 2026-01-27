@@ -1,161 +1,318 @@
-# BitcoinLink Application Architecture Overview
+# BitcoinLink Implementation Overview
 
-## Project Summary
+## Architecture Summary
 
-BitcoinLink is a Next.js 14 web application that enables non-custodial Bitcoin payments via shareable links. Users generate single-use payment links backed by Nostr Wallet Connect (NWC) credentials, which recipients can claim to receive Bitcoin directly to their Lightning wallet.
+BitcoinLink is a **client-side only** Next.js application that uses Nostr relays for data storage instead of a traditional database. All encryption, decryption, and payment operations happen in the browser.
+
+```text
+┌────────────────────────────────────────────────────────────────┐
+│                    BitcoinLink Architecture                     │
+├────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐  │
+│  │                   Next.js Frontend                       │  │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐ │  │
+│  │  │   Pages     │  │  Components │  │   Hooks         │ │  │
+│  │  │  - index    │  │  - LinkModal│  │  - useToast     │ │  │
+│  │  │  - claim/   │  │  - MutinyM..│  │  - useSubscribe │ │  │
+│  │  └─────────────┘  └─────────────┘  └─────────────────┘ │  │
+│  │                                                         │  │
+│  │  ┌─────────────────────────────────────────────────┐   │  │
+│  │  │              src/lib/nostr/                      │   │  │
+│  │  │  ┌──────────┐ ┌──────────┐ ┌──────────────────┐│   │  │
+│  │  │  │ client   │ │gift-wrap │ │ link-encoder     ││   │  │
+│  │  │  │ .ts      │ │ .ts      │ │ .ts              ││   │  │
+│  │  │  └──────────┘ └──────────┘ └──────────────────┘│   │  │
+│  │  │  ┌──────────┐ ┌──────────┐ ┌──────────────────┐│   │  │
+│  │  │  │nwc-client│ │ relays   │ │ types            ││   │  │
+│  │  │  │ .ts      │ │ .ts      │ │ .ts              ││   │  │
+│  │  │  └──────────┘ └──────────┘ └──────────────────┘│   │  │
+│  │  └─────────────────────────────────────────────────┘   │  │
+│  └─────────────────────────────────────────────────────────┘  │
+│                              │                                  │
+│                              ▼                                  │
+│  ┌─────────────────────────────────────────────────────────┐  │
+│  │                    Nostr Relays                          │  │
+│  │   wss://relay.damus.io  wss://nos.lol  wss://...        │  │
+│  └─────────────────────────────────────────────────────────┘  │
+│                                                                 │
+└────────────────────────────────────────────────────────────────┘
+```
 
 ## Technology Stack
 
-| Category | Technology |
-|----------|------------|
-| Framework | Next.js 14.2.3 (React 18) |
-| Database | PostgreSQL with Prisma 5.13.0 ORM |
-| Styling | Tailwind CSS 3.4.1, PrimeReact 10.2.1 |
-| Bitcoin/Lightning | @getalby/sdk, nostr-tools 1.17.0, light-bolt11-decoder |
-| Rate Limiting | @upstash/ratelimit, @vercel/kv |
-| Deployment | Docker, Vercel |
+| Layer | Technology |
+|-------|------------|
+| Framework | Next.js 14.2.3, React 18, TypeScript |
+| UI | Tailwind CSS, PrimeReact |
+| Nostr | snstr (^0.2.0), nostr-tools 1.17.0 |
+| Bitcoin | @getalby/sdk, light-bolt11-decoder |
 
 ## Directory Structure
 
-```
+```text
 bitcoinlink/
 ├── src/
+│   ├── lib/
+│   │   └── nostr/                 # Core Nostr implementation
+│   │       ├── index.ts           # Re-exports all modules
+│   │       ├── types.ts           # TypeScript interfaces
+│   │       ├── client.ts          # Relay connection management
+│   │       ├── gift-wrap.ts       # NIP-17 gift wrap creation/decryption
+│   │       ├── link-encoder.ts    # URL encoding/decoding (base64url)
+│   │       ├── link-generator.ts  # Shared link generation utility
+│   │       ├── nwc-client.ts      # NWC payment execution
+│   │       └── relays.ts          # Default relay configuration
 │   ├── pages/
-│   │   ├── _app.js                 # App wrapper with ToastProvider
-│   │   ├── _document.js            # HTML document template
-│   │   ├── index.js                # Home page - link generation
-│   │   ├── claim/
-│   │   │   └── [slug].js           # Claim page - link redemption
-│   │   └── api/
-│   │       ├── nwc/index.js        # NWC CRUD operations
-│   │       ├── links/index.js      # Link CRUD operations
-│   │       ├── link/[slug].js      # API link generation endpoint
-│   │       └── claim/[slug].js     # Claim and payment execution
+│   │   ├── _app.tsx               # App wrapper with ToastProvider
+│   │   ├── _document.tsx          # HTML document template
+│   │   ├── index.tsx              # Home page - link generation
+│   │   └── claim/
+│   │       └── [slug].tsx         # Claim page - link redemption
 │   ├── components/
-│   │   ├── AlbyButton.js           # Alby wallet integration
-│   │   ├── LinkModal.js            # Generated links display modal
-│   │   ├── Footer.js               # Page footer
-│   │   ├── ImagePreview.jsx        # Image preview component
-│   │   ├── mutiny/                 # Mutiny wallet components
-│   │   │   ├── MutinyButton.js
-│   │   │   ├── MutinyModal.js
-│   │   │   └── MutinyInstructions.js
-│   │   ├── strike/                 # Strike wallet components
-│   │   │   ├── StrikeButton.js
-│   │   │   └── StrikeInstructions.js
-│   │   └── cashapp/                # CashApp components
-│   │       ├── CashAppButton.js
-│   │       └── CashAppInstructions.js
+│   │   ├── AlbyButton.tsx         # Alby wallet integration
+│   │   ├── LinkModal.tsx          # Generated links display
+│   │   ├── Footer.tsx             # Page footer
+│   │   ├── mutiny/                # Mutiny wallet components
+│   │   │   ├── MutinyButton.tsx
+│   │   │   ├── MutinyModal.tsx
+│   │   │   └── MutinyInstructions.tsx
+│   │   ├── strike/                # Strike wallet components
+│   │   │   ├── StrikeButton.tsx
+│   │   │   └── StrikeInstructions.tsx
+│   │   └── cashapp/               # CashApp components
+│   │       ├── CashAppButton.tsx
+│   │       └── CashAppInstructions.tsx
 │   ├── hooks/
-│   │   ├── useToast.js             # Toast notification context
-│   │   └── useSubscribetoEvents.js # Nostr event subscription
-│   ├── models/
-│   │   ├── nwcModels.js            # NWC database operations
-│   │   ├── linkModels.js           # Link database operations
-│   │   └── prisma.js               # Prisma client singleton
+│   │   ├── useToast.tsx           # Toast notification context
+│   │   └── useSubscribeToEvents.ts # Nostr event subscription (legacy)
 │   ├── utils/
-│   │   └── bolt11.js               # Bolt11 invoice utilities
+│   │   └── bolt11.ts              # Bolt11 invoice utilities
 │   └── styles/
-│       └── globals.css             # Global Tailwind styles
-├── prisma/
-│   ├── schema.prisma               # Database schema
-│   └── migrations/                 # Migration history
-├── public/                         # Static assets
-├── middleware.js                   # Rate limiting middleware
-├── docker-compose.yml              # Local development setup
-├── Dockerfile                      # Container definition
-└── package.json                    # Dependencies and scripts
+│       └── globals.css            # Global Tailwind styles
+├── public/                        # Static assets (wallet logos, etc.)
+├── LLM/context/                   # snstr documentation
+├── llm/                           # Project documentation
+│   ├── context/                   # Background information
+│   ├── implementation/            # Code documentation
+│   └── workflows/                 # User flow documentation
+├── package.json
+├── tsconfig.json
+├── tailwind.config.js
+└── next.config.mjs
 ```
 
-## Core Architecture Patterns
+## Core Data Flow
 
-### Frontend/Backend Separation
+### Link Creation
 
-BitcoinLink uses Next.js's integrated architecture:
-
-- **Pages (`/src/pages/*.js`)**: React components for UI rendering
-- **API Routes (`/src/pages/api/*.js`)**: Serverless API endpoints
-- **Shared Models (`/src/models/*.js`)**: Database access layer used by API routes
-
-### Data Flow
-
+```text
+1. User Input (numberOfLinks, satsPerLink)
+         │
+         ▼
+2. Wallet Connection (Alby or Mutiny)
+         │
+         ▼
+3. Get NWC URL from wallet
+         │
+         ▼
+4. For each link (via generateLinksFromNWC):
+   ├── Create payload: { type: 'bitcoinlink', nwcUrl, amount }
+   ├── Generate sender and receiver keypairs
+   ├── Gift-wrap payload using NIP-17
+   ├── Publish event to relays
+   └── Create URL: base64url({ eventId, receiverPrivateKey, relays, amountSats })
+         │
+         ▼
+5. Display links in LinkModal
 ```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Frontend  │────▶│  API Route  │────▶│   Prisma    │
-│   (React)   │◀────│  (Node.js)  │◀────│ (PostgreSQL)│
-└─────────────┘     └─────────────┘     └─────────────┘
-                           │
-                           ▼
-                    ┌─────────────┐
-                    │  NWC/Nostr  │
-                    │   (WebLN)   │
-                    └─────────────┘
+
+### Link Claiming
+
+```text
+1. Decode URL slug (base64url → JSON)
+         │
+         ▼
+2. Check for deletion event (already claimed?)
+         │
+         ▼
+3. Fetch gift wrap event from relays
+         │
+         ▼
+4. Decrypt with receiver private key
+         │
+         ▼
+5. User provides Lightning address/invoice
+         │
+         ▼
+6. Fetch invoice (if address/LNURL)
+         │
+         ▼
+7. Pay invoice via NWC
+         │
+         ▼
+8. Publish deletion event (NIP-09)
+         │
+         ▼
+9. Show success / update UI
 ```
-
-### Security Model
-
-1. **Encryption at Rest**: NWC URLs are encrypted with AES-256-CBC before database storage
-2. **Secret in URL**: Decryption secrets are embedded in link URLs (never stored server-side)
-3. **One-Time Use**: Links are deleted after successful payment
-4. **Rate Limiting**: IP-based rate limiting via Upstash (5 requests per 10 seconds)
-5. **Referer Validation**: Middleware validates referer header from `https://www.bitcoinlink.app`
 
 ## Key Entry Points
 
-| File | Purpose | HTTP Methods |
-|------|---------|--------------|
-| `src/pages/index.js` | Link generation UI | N/A (Page) |
-| `src/pages/claim/[slug].js` | Link claiming UI | N/A (Page) |
-| `src/pages/api/nwc/index.js` | Create NWC records | POST |
-| `src/pages/api/links/index.js` | Create link records | POST |
-| `src/pages/api/link/[slug].js` | API link generation | GET |
-| `src/pages/api/claim/[slug].js` | Get link info / Execute payment | GET, POST |
+| File | Purpose |
+|------|---------|
+| `src/pages/index.tsx` | Link generation UI, wallet connection |
+| `src/pages/claim/[slug].tsx` | Link claiming UI, payment execution |
+| `src/lib/nostr/gift-wrap.ts` | Core encryption/decryption |
+| `src/lib/nostr/link-generator.ts` | Shared link generation logic |
+| `src/lib/nostr/client.ts` | Relay communication |
+| `src/lib/nostr/nwc-client.ts` | Payment execution |
 
-## Database Schema
+## What's NOT in the Codebase
 
-Two primary models with a one-to-many relationship:
+The Nostr-only refactor removed:
 
-```prisma
-model NWC {
-  id        String   @id @default(cuid())
-  url       String                        // Encrypted NWC URL
-  expiresAt DateTime
-  maxAmount Int                           // Total sats budget
-  numLinks  Int                           // Number of links from this NWC
-  links     Link[]
-}
+| Removed | Replaced By |
+|---------|-------------|
+| PostgreSQL database | Nostr relays |
+| Prisma ORM | snstr library |
+| API routes (CRUD) | Client-side Nostr |
+| Rate limiting middleware | None (client-side) |
+| Server-side encryption | Gift wrap (NIP-17) |
+| `src/models/` directory | `src/lib/nostr/` |
+| `src/pages/api/` directory | Removed entirely |
 
-model Link {
-  id           String  @id @default(cuid())
-  linkIndex    String  @unique @default(cuid())
-  nwcId        String
-  nwc          NWC     @relation(fields: [nwcId], references: [id])
-  isClaimed    Boolean @default(false)
-  wasServedAPI Boolean @default(false)
-}
+## Security Model
+
+### Encryption Layers
+
+```text
+┌─────────────────────────────────────┐
+│ Link URL                            │
+│ Contains: eventId, receiverPrivKey  │
+├─────────────────────────────────────┤
+│ Gift Wrap Event (Kind 1059)         │
+│ - Ephemeral sender pubkey           │
+│ - NIP-44 encrypted seal             │
+├─────────────────────────────────────┤
+│ Seal (Kind 13)                      │
+│ - Signed by ephemeral sender        │
+│ - NIP-44 encrypted rumor            │
+├─────────────────────────────────────┤
+│ Rumor (Kind 14)                     │
+│ - Contains BitcoinLink payload      │
+│ - { type, nwcUrl, amount }          │
+└─────────────────────────────────────┘
 ```
 
-## Build and Run
+### Non-Custodial Design
+
+- App never holds funds
+- NWC URL only accessible with private key from URL
+- Payment goes directly: sender wallet → recipient
+- No central point of failure
+
+## Build and Development
 
 ```bash
-# Development
-npm run dev
-
-# Production build
-npm run build  # Runs: prisma generate && next build && prisma migrate deploy
-
-# Start production server
-npm start
-
-# Docker (local development)
-docker-compose up
+npm run dev    # Development server
+npm run build  # Production build
+npm start      # Start production server
+npm run lint   # ESLint
+npm test       # Jest test suite
 ```
 
 ## Environment Variables
 
-Required environment variables (see `.env.sample`):
+**None required.** The app uses public Nostr relays.
 
-- `POSTGRES_PRISMA_URL` - PostgreSQL connection URL (pooled)
-- `POSTGRES_URL_NON_POOLING` - PostgreSQL direct connection URL
-- `KV_REST_API_URL` - Upstash KV REST API URL
-- `KV_REST_API_TOKEN` - Upstash KV REST API token
+## Testing
+
+The project has comprehensive test coverage using Jest with ts-jest for TypeScript support.
+
+### Test Structure
+
+```text
+tests/
+├── nostr/
+│   ├── gift-wrap.test.ts       # Gift wrap creation/decryption
+│   ├── link-encoder.test.ts    # URL encoding/decoding
+│   ├── link-generator.test.ts  # Link generation validation
+│   ├── client.test.ts          # Nostr client configuration
+│   ├── claim-flow.test.ts      # Full create→claim integration
+│   ├── nwc-client.test.ts      # NWC URL utilities
+│   └── nwc-payment.test.ts     # NWC payment (mocked)
+└── utils/
+    └── bolt11.test.ts          # Invoice validation
+```
+
+### Running Tests
+
+```bash
+npm test           # Run all tests
+npm test -- --watch  # Watch mode
+npm test -- --coverage  # Coverage report
+```
+
+### Test Categories
+
+| Category | Tests | Description |
+|----------|-------|-------------|
+| Unit | gift-wrap, link-encoder, nwc-client, bolt11 | Pure function tests |
+| Validation | link-generator | Input validation before network ops |
+| Integration | claim-flow | Full create→encode→decode→decrypt cycle |
+| Mocked | nwc-payment | Payment flow with mocked NWC client |
+
+### Coverage
+
+- **133 tests** across 8 test files
+- Input validation and error handling
+- Edge cases (zero/negative/large values, unicode, special characters)
+- Key validation and security edge cases
+- Batch/concurrent operations
+- Roundtrip verification (encode→decode, create→decrypt)
+
+## Key Imports
+
+```typescript
+// From src/lib/nostr (custom library)
+import {
+  // Gift wrap
+  createBitcoinLink,
+  decryptBitcoinLink,
+  GIFT_WRAP_KIND,
+  // Link encoding
+  encodeLink,
+  decodeLink,
+  createClaimUrl,
+  createClaimPath,
+  // Link generation
+  generateLinksFromNWC,
+  // Client
+  BitcoinLinkNostrClient,
+  // NWC
+  payInvoiceWithNWC,
+  isValidNWCUrl,
+  getRelaysFromNWCUrl,
+  // Config
+  DEFAULT_RELAYS,
+  // Types
+  type BitcoinLinkPayload,
+  type EncodedLink,
+  type LinkInfo,
+} from '@/lib/nostr';
+
+// From snstr (Nostr protocol)
+import {
+  createDirectMessage,
+  decryptDirectMessage,
+  generateKeypair,
+  getPublicKey,
+  NostrWalletConnectClient,
+  parseNWCURL,
+  decryptNIP04,
+} from 'snstr';
+
+// From @getalby/sdk (Alby wallet connection)
+import { nwc } from '@getalby/sdk';
+```

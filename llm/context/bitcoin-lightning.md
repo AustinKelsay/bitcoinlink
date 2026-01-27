@@ -2,12 +2,12 @@
 
 ## Bitcoin Overview
 
-Bitcoin is a decentralized digital currency that operates without a central authority. Transactions are verified by network nodes through cryptography and recorded on a public distributed ledger called a blockchain.
+Bitcoin is a decentralized digital currency verified by network nodes through cryptography and recorded on a public blockchain.
 
 **Key Properties:**
 - Decentralized (no central authority)
-- Limited supply (21 million BTC max)
-- Pseudonymous (addresses not tied to identity)
+- Limited supply (21 million BTC)
+- Pseudonymous
 - Irreversible transactions
 
 ## Lightning Network
@@ -49,7 +49,7 @@ Bolt11 is the standard format for Lightning Network payment requests (invoices).
 
 ### Invoice Structure
 
-```
+```text
 lnbc10u1p0c8e7ypp5...
 │    │  │
 │    │  └─ Human-readable part (amount + unit)
@@ -87,7 +87,7 @@ lnbc10u1p0c8e7ypp5...
 
 BitcoinLink uses `light-bolt11-decoder` to:
 - Parse invoices from recipients
-- Extract and validate amounts
+- Validate invoice format
 - Check expiration status
 
 ---
@@ -100,7 +100,7 @@ A Lightning address looks like an email address (user@domain.com) and provides a
 
 ### How It Works
 
-```
+```text
 1. User has Lightning address: alice@wallet.com
 2. Sender queries: https://wallet.com/.well-known/lnurlp/alice
 3. Response includes callback URL and amount range
@@ -124,7 +124,7 @@ A Lightning address looks like an email address (user@domain.com) and provides a
 
 Recipients can enter Lightning addresses to receive payments:
 
-```javascript
+```typescript
 // Parse Lightning address
 const [username, domain] = input.split('@');
 
@@ -134,7 +134,8 @@ const endpoint = `https://${domain}/.well-known/lnurlp/${username}`;
 // Fetch callback URL
 const { callback } = await fetch(endpoint).then(r => r.json());
 
-// Get invoice for specific amount
+// Get invoice for specific amount (note: LNURL uses millisatoshis)
+const amountMsats = amountSats * 1000;
 const { pr: invoice } = await fetch(`${callback}?amount=${amountMsats}`)
   .then(r => r.json());
 ```
@@ -158,13 +159,16 @@ LNURL is a set of protocols that simplify Lightning Network interactions using U
 
 ### LNURL Encoding
 
-```javascript
+```typescript
 // LNURL is a bech32-encoded URL
 const lnurl = "LNURL1DP68GURN8GHJ7...";
 
 // Decode to get actual URL
-const decoded = bech32.decode(lnurl);
-const url = Buffer.from(bech32.fromWords(decoded.words)).toString();
+import { bech32 } from 'bech32';
+
+const { words } = bech32.decode(lnurl, 2000);
+const bytes = bech32.fromWords(words);
+const url = new TextDecoder().decode(Uint8Array.from(bytes));
 // Result: "https://wallet.com/lnurlp/alice"
 ```
 
@@ -172,7 +176,7 @@ const url = Buffer.from(bech32.fromWords(decoded.words)).toString();
 
 Recipients can paste LNURL strings directly:
 
-```javascript
+```typescript
 if (input.toLowerCase().startsWith('lnurl')) {
   const decoded = decodeLnurl(input);
   // decoded = "https://wallet.com/lnurlp/..."
@@ -186,11 +190,11 @@ if (input.toLowerCase().startsWith('lnurl')) {
 
 ### What is NWC?
 
-NWC is a protocol for remote wallet control over Nostr. It allows applications to request payments from a user's wallet without direct access to funds.
+NWC (NIP-47) is a protocol for remote wallet control over Nostr. It allows applications to request payments from a user's wallet without direct access to funds.
 
 ### NWC URL Format
 
-```
+```text
 nostr+walletconnect://pubkey?relay=wss://relay.com&secret=hex
 │                    │       │                       │
 │                    │       │                       └─ Client private key
@@ -201,11 +205,11 @@ nostr+walletconnect://pubkey?relay=wss://relay.com&secret=hex
 
 ### How NWC Works
 
-```
+```text
 1. User connects wallet to app via NWC URL
-2. App stores encrypted NWC URL
+2. App stores encrypted NWC URL (in gift wrap event)
 3. When payment needed:
-   a. App creates NWC provider with URL
+   a. App creates NWC client with URL
    b. App sends pay_invoice request via Nostr
    c. Wallet receives request, executes payment
    d. Wallet sends response via Nostr
@@ -224,22 +228,31 @@ nostr+walletconnect://pubkey?relay=wss://relay.com&secret=hex
 
 ### In BitcoinLink
 
-```javascript
-import { webln } from '@getalby/sdk';
+**Generating NWC connection (Alby):**
+```typescript
+import { nwc } from '@getalby/sdk';
 
-// Create NWC provider
-const nwcProvider = new webln.NostrWebLNProvider({
-  nostrWalletConnectUrl: decryptedNwcUrl
+const newNwc = nwc.NWCClient.withNewSecret();
+await newNwc.initNWC({
+  name: 'bitcoinlink.app',
+  requestMethods: ['pay_invoice'],
+  maxAmount: amount,
+  budgetRenewal: 'never',
+  expiresAt: yearFromNow,
 });
+const nwcUrl = newNwc.getNostrWalletConnectUrl();
+```
 
-// Enable connection
-await nwcProvider.enable();
+**Paying invoice (snstr):**
+```typescript
+import { NostrWalletConnectClient, parseNWCURL } from 'snstr';
 
-// Send payment
-const response = await nwcProvider.sendPayment(invoice);
+const connectionOptions = parseNWCURL(nwcUrl);
+const client = new NostrWalletConnectClient(connectionOptions);
 
-// Close connection
-nwcProvider.close();
+await client.init();
+const result = await client.payInvoice(invoice);
+await client.disconnect();
 ```
 
 ### NWC Budget
@@ -274,12 +287,12 @@ WebLN is a browser API specification for Lightning wallets. It allows web applic
 
 Used for Alby wallet claiming:
 
-```javascript
-if (window && window.webln) {
+```typescript
+if (window?.webln) {
   await window.webln.enable();
   const result = await window.webln.makeInvoice({
     amount: linkInfo.amount,
-    comment: "Reward"
+    comment: 'BitcoinLink Reward',
   });
   // result.paymentRequest contains the invoice
 }
@@ -295,7 +308,7 @@ Bech32 is an encoding format used in Bitcoin for SegWit addresses and in Lightni
 
 ### Format
 
-```
+```text
 prefix1data
 │      │
 │      └─ Encoded data
@@ -306,12 +319,16 @@ prefix1data
 
 Used to decode LNURL strings:
 
-```javascript
+```typescript
 import { bech32 } from 'bech32';
 
-const decodeLnurl = (lnurl) => {
-  let { prefix, words } = bech32.decode(lnurl, 2000);
-  let bytes = bech32.fromWords(words);
-  return Buffer.from(bytes).toString();
+const decodeLnurl = (lnurl: string): string | undefined => {
+  try {
+    const { words } = bech32.decode(lnurl, 2000);
+    const bytes = bech32.fromWords(words);
+    return new TextDecoder().decode(Uint8Array.from(bytes));
+  } catch {
+    return undefined;
+  }
 };
 ```
