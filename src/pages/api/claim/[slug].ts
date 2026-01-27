@@ -23,9 +23,11 @@ const handleNwcReplacementPostRequest = async (
   const { invoice } = req.body as { invoice: string };
   const { slug, linkIndex } = req.query as { slug: string; linkIndex: string };
   const token = req.headers.authorization;
-  console.log('slug', slug);
-  console.log('linkIndex', linkIndex);
-  console.log('invoice', invoice);
+
+  if (!token || typeof token !== 'string') {
+    res.status(401).json({ error: 'Missing or invalid authorization header' });
+    return;
+  }
 
   try {
     const nwc = await getNwcById(slug);
@@ -43,7 +45,7 @@ const handleNwcReplacementPostRequest = async (
       return;
     }
 
-    const decryptedUrl = decryptNWCUrl(nwc.url, token as string);
+    const decryptedUrl = decryptNWCUrl(nwc.url, token);
 
     if (!decryptedUrl) {
       res.status(500).json({ error: 'Error decrypting URL' });
@@ -106,6 +108,11 @@ const handlePostRequest = async (
   const { slug, linkIndex } = req.query as { slug: string; linkIndex: string };
   const token = req.headers.authorization;
 
+  if (!token || typeof token !== 'string') {
+    res.status(401).json({ error: 'Missing or invalid authorization header' });
+    return;
+  }
+
   try {
     const nwc = await getNwcById(slug);
 
@@ -122,7 +129,7 @@ const handlePostRequest = async (
       return;
     }
 
-    const decryptedUrl = decryptNWCUrl(nwc.url, token as string);
+    const decryptedUrl = decryptNWCUrl(nwc.url, token);
 
     if (!decryptedUrl) {
       res.status(500).json({ error: 'Error decrypting URL' });
