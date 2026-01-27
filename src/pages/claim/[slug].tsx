@@ -106,10 +106,10 @@ export default function ClaimPage(): React.ReactElement {
       }
     } else if (inputValue.toLowerCase().startsWith('lnbc')) {
       try {
-        const valid = validateBolt11(inputValue);
-        console.log('Valid invoice:', valid, inputValue);
-        if (!valid) {
-          showToast('warn', 'Invalid Invoice', 'This is not a valid invoice.');
+        const result = validateBolt11(inputValue);
+        console.log('Valid invoice:', result, inputValue);
+        if (!result.valid) {
+          showToast('warn', 'Invalid Invoice', result.reason || 'This is not a valid invoice.');
           return false;
         }
         return { type: 'invoice', data: inputValue };
