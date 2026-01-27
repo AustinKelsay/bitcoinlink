@@ -10,30 +10,30 @@ import {
 
 describe('BOLT11 Utilities', () => {
   describe('getBolt11Description', () => {
-    it('should throw for completely invalid input', () => {
-      expect(() => getBolt11Description('not-an-invoice')).toThrow();
+    it('should return null for completely invalid input', () => {
+      expect(getBolt11Description('not-an-invoice')).toBeNull();
     });
 
-    it('should throw for empty string', () => {
-      expect(() => getBolt11Description('')).toThrow();
+    it('should return null for empty string', () => {
+      expect(getBolt11Description('')).toBeNull();
     });
 
-    it('should throw for invalid bech32', () => {
-      expect(() => getBolt11Description('lnbc1invalid')).toThrow();
+    it('should return null for invalid bech32', () => {
+      expect(getBolt11Description('lnbc1invalid')).toBeNull();
     });
   });
 
   describe('getBolt11Amount', () => {
-    it('should throw for invalid invoice', () => {
-      expect(() => getBolt11Amount('invalid')).toThrow();
+    it('should return null for invalid invoice', () => {
+      expect(getBolt11Amount('invalid')).toBeNull();
     });
 
-    it('should throw for empty string', () => {
-      expect(() => getBolt11Amount('')).toThrow();
+    it('should return null for empty string', () => {
+      expect(getBolt11Amount('')).toBeNull();
     });
 
-    it('should throw for malformed bech32', () => {
-      expect(() => getBolt11Amount('lnbc1xyz')).toThrow();
+    it('should return null for malformed bech32', () => {
+      expect(getBolt11Amount('lnbc1xyz')).toBeNull();
     });
   });
 
@@ -72,7 +72,7 @@ describe('BOLT11 Utilities', () => {
 
   describe('edge cases', () => {
     it('should handle invoice with special characters gracefully', () => {
-      expect(() => getBolt11Description('lnbc1🎉💥')).toThrow();
+      expect(getBolt11Description('lnbc1🎉💥')).toBeNull();
     });
 
     it('should handle very long invalid input', () => {

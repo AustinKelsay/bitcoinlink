@@ -26,10 +26,12 @@ export async function payInvoiceWithNWC(
   nwcUrl: string,
   invoice: string
 ): Promise<PaymentResult> {
-  const connectionOptions = parseNWCURL(nwcUrl);
-  const client = new NostrWalletConnectClient(connectionOptions);
+  let client: NostrWalletConnectClient | null = null;
 
   try {
+    const connectionOptions = parseNWCURL(nwcUrl);
+    client = new NostrWalletConnectClient(connectionOptions);
+
     await client.init();
     const result = await client.payInvoice(invoice);
 
@@ -39,7 +41,14 @@ export async function payInvoiceWithNWC(
 
     return { preimage: result.preimage };
   } finally {
-    await client.disconnect();
+    if (client) {
+      try {
+        await client.disconnect();
+      } catch (disconnectError) {
+        // Log but don't throw - disconnect errors shouldn't overwrite successful payment results
+        console.warn('Error disconnecting NWC client:', disconnectError);
+      }
+    }
   }
 }
 

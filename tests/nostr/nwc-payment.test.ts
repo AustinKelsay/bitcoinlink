@@ -131,7 +131,7 @@ describe('NWC Payment', () => {
         .rejects.toThrow('Timeout');
     });
 
-    it('should handle network errors during disconnect', async () => {
+    it('should handle network errors during disconnect gracefully', async () => {
       const mockPreimage = 'preimage123';
       const mockClient = {
         init: jest.fn().mockResolvedValue(undefined),
@@ -140,9 +140,11 @@ describe('NWC Payment', () => {
       };
       NostrWalletConnectClient.mockImplementation(() => mockClient);
 
-      // Should still throw due to disconnect error
-      await expect(payInvoiceWithNWC(VALID_NWC_URL, VALID_INVOICE))
-        .rejects.toThrow('Network error');
+      // Should succeed - disconnect errors should not overwrite successful payment results
+      const result = await payInvoiceWithNWC(VALID_NWC_URL, VALID_INVOICE);
+      expect(result).toEqual({ preimage: mockPreimage });
+      // Disconnect was still attempted
+      expect(mockClient.disconnect).toHaveBeenCalledTimes(1);
     });
   });
 

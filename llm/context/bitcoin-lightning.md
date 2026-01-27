@@ -49,7 +49,7 @@ Bolt11 is the standard format for Lightning Network payment requests (invoices).
 
 ### Invoice Structure
 
-```
+```text
 lnbc10u1p0c8e7ypp5...
 │    │  │
 │    │  └─ Human-readable part (amount + unit)
@@ -100,7 +100,7 @@ A Lightning address looks like an email address (user@domain.com) and provides a
 
 ### How It Works
 
-```
+```text
 1. User has Lightning address: alice@wallet.com
 2. Sender queries: https://wallet.com/.well-known/lnurlp/alice
 3. Response includes callback URL and amount range
@@ -194,7 +194,7 @@ NWC (NIP-47) is a protocol for remote wallet control over Nostr. It allows appli
 
 ### NWC URL Format
 
-```
+```text
 nostr+walletconnect://pubkey?relay=wss://relay.com&secret=hex
 │                    │       │                       │
 │                    │       │                       └─ Client private key
@@ -205,7 +205,7 @@ nostr+walletconnect://pubkey?relay=wss://relay.com&secret=hex
 
 ### How NWC Works
 
-```
+```text
 1. User connects wallet to app via NWC URL
 2. App stores encrypted NWC URL (in gift wrap event)
 3. When payment needed:
@@ -308,7 +308,7 @@ Bech32 is an encoding format used in Bitcoin for SegWit addresses and in Lightni
 
 ### Format
 
-```
+```text
 prefix1data
 │      │
 │      └─ Encoded data

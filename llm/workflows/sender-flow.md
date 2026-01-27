@@ -10,7 +10,7 @@ The sender flow is how users create Bitcoin payment links. The sender connects t
 
 ## Visual Flow
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                           SENDER FLOW                                        │
 ├─────────────────────────────────────────────────────────────────────────────┤

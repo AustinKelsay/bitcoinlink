@@ -136,7 +136,8 @@ export default function ClaimPage(): React.ReactElement {
       return { type: 'lnurl', data: decoded };
     }
 
-    if (inputValue.toLowerCase().startsWith('lnbc')) {
+    // Check for BOLT11 invoice: lnbc (mainnet), lntb (testnet), lnbcrt (regtest)
+    if (/^ln(bc|tb|bcrt)/i.test(inputValue)) {
       try {
         const result = validateBolt11(inputValue);
         if (!result.valid) {
@@ -224,11 +225,13 @@ export default function ClaimPage(): React.ReactElement {
       return false;
     }
 
-    try {
-      // Pay the invoice using NWC
-      await payInvoiceWithNWC(payload.nwcUrl, invoice);
+    // Pay the invoice using NWC - this is the critical operation
+    await payInvoiceWithNWC(payload.nwcUrl, invoice);
 
-      // Publish deletion event to mark as claimed
+    // Publish deletion event to mark as claimed
+    // This is non-fatal - if it fails, the payment already succeeded
+    // User could retry and risk double-payment if we threw here
+    try {
       const client = new BitcoinLinkNostrClient(linkData.relays);
       try {
         await client.connect();
@@ -236,12 +239,11 @@ export default function ClaimPage(): React.ReactElement {
       } finally {
         client.close();
       }
-
-      return true;
-    } catch (error) {
-      console.error('Payment error:', error);
-      throw error;
+    } catch (deletionError) {
+      console.warn('Failed to publish deletion event (payment succeeded):', deletionError);
     }
+
+    return true;
   };
 
   const handleSubmit = async (e: FormEvent): Promise<void> => {

@@ -10,7 +10,7 @@ The receiver flow is how recipients claim Bitcoin payment links. The recipient p
 
 ## Visual Flow
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                           RECEIVER FLOW                                      │
 ├─────────────────────────────────────────────────────────────────────────────┤
@@ -92,7 +92,7 @@ The receiver flow is how recipients claim Bitcoin payment links. The recipient p
 
 **Location:** `src/pages/claim/[slug].tsx`
 
-```
+```text
 ┌─────────────────────────────────────────┐
 │              Claim Link                  │
 │                                          │
@@ -399,7 +399,7 @@ try {
 
 ## Data Flow Summary
 
-```
+```text
 URL → Decode → Check Deletion → Fetch Event → Decrypt → Get Invoice → Pay via NWC → Publish Deletion
   │      │           │              │            │            │              │              │
   │      │           │              │            │            │              │              └─ Nostr relay

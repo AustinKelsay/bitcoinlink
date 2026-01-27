@@ -74,17 +74,20 @@ function createEncodedLink(
  * @param receiverPrivateKey - The receiver's private key
  * @param amountSats - The amount in satoshis
  * @param relays - Optional custom relay list (defaults to DEFAULT_RELAYS)
+ * @param baseUrl - Optional base URL (defaults to window.location.origin or https://bitcoinlink.app)
  * @returns The full claim URL
  */
 export function createClaimUrl(
   eventId: string,
   receiverPrivateKey: string,
   amountSats: number,
-  relays: string[] = DEFAULT_RELAYS
+  relays: string[] = DEFAULT_RELAYS,
+  baseUrl?: string
 ): string {
   const link = createEncodedLink(eventId, receiverPrivateKey, amountSats, relays);
   const encoded = encodeLink(link);
-  return `https://bitcoinlink.app/claim/${encoded}`;
+  const origin = baseUrl ?? (typeof window !== 'undefined' ? window.location.origin : 'https://bitcoinlink.app');
+  return `${origin}/claim/${encoded}`;
 }
 
 /**

@@ -22,7 +22,7 @@ Gift wrap is the foundation of BitcoinLink's security model. It provides multi-l
 
 ### Structure
 
-```
+```text
 ┌─────────────────────────────────────────┐
 │ Gift Wrap (Kind 1059)                   │
 │ - pubkey: EPHEMERAL (random)            │
@@ -107,7 +107,7 @@ NWC enables the app to send payments from the sender's wallet.
 
 ### NWC URL Format
 
-```
+```text
 nostr+walletconnect://{walletPubkey}?relay={relayUrl}&secret={clientSecret}
 ```
 
@@ -166,7 +166,7 @@ Deletion events mark links as claimed. When a payment succeeds, a deletion event
 
 ### How It Works
 
-```
+```text
 ┌─────────────────────────────────────────┐
 │ Before Claim:                           │
 │ - Gift wrap event exists on relays      │
@@ -226,7 +226,7 @@ Used only for Mutiny wallet authentication via NWA (Nostr Wallet Auth).
 
 ### NWA Flow
 
-```
+```text
 1. App generates keypair
 2. App creates NWA URI: nostr+walletauth://{pubkey}?relay=...&secret=...&budget=...
 3. User scans QR or opens Mutiny in browser

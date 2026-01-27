@@ -19,29 +19,37 @@ export interface ValidationResult {
  * Extract the description from a BOLT11 invoice.
  *
  * @param invoice - The BOLT11 invoice string
- * @returns The description string, or null if not present
+ * @returns The description string, or null if not present or invalid
  */
 export const getBolt11Description = (invoice: string): string | null => {
-  const decoded = bolt11Decoder.decode(invoice);
-  const descriptionSection = decoded.sections.find(
-    (section) => section.tag === 'd'
-  );
-  return descriptionSection ? String(descriptionSection.value) : null;
+  try {
+    const decoded = bolt11Decoder.decode(invoice);
+    const descriptionSection = decoded.sections.find(
+      (section) => section.tag === 'd'
+    );
+    return descriptionSection ? String(descriptionSection.value) : null;
+  } catch {
+    return null;
+  }
 };
 
 /**
  * Extract the amount in satoshis from a BOLT11 invoice.
  *
  * @param invoice - The BOLT11 invoice string
- * @returns The amount in satoshis, or null if not present
+ * @returns The amount in satoshis, or null if not present or invalid
  */
 export const getBolt11Amount = (invoice: string): number | null => {
-  const decoded = bolt11Decoder.decode(invoice);
-  const amountSection = decoded.sections.find(
-    (section) => section.name === 'amount'
-  );
-  // Amount in BOLT11 is in millisatoshis, convert to satoshis
-  return amountSection ? Number(amountSection.value) / 1000 : null;
+  try {
+    const decoded = bolt11Decoder.decode(invoice);
+    const amountSection = decoded.sections.find(
+      (section) => section.name === 'amount'
+    );
+    // Amount in BOLT11 is in millisatoshis, convert to satoshis
+    return amountSection ? Number(amountSection.value) / 1000 : null;
+  } catch {
+    return null;
+  }
 };
 
 /**
@@ -62,7 +70,8 @@ export const validateBolt11 = (invoice: string): ValidationResult => {
     if (!timestampSection) {
       return { valid: false, reason: 'Missing timestamp' };
     }
-    const expiryTimestamp = Number(timestampSection.value) + decoded.expiry;
+    // Default expiry to 3600 seconds per BOLT11 spec if not specified
+    const expiryTimestamp = Number(timestampSection.value) + (decoded.expiry ?? 3600);
     const currentTimestamp = Math.floor(Date.now() / 1000);
     if (currentTimestamp > expiryTimestamp) {
       return { valid: false, reason: 'Invoice has expired' };

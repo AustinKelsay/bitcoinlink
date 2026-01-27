@@ -87,8 +87,9 @@ const MutinyModal: React.FC<MutinyModalProps> = ({
       return;
     }
 
-    // Check if this event is for our app
-    if (!event.tags[0] || event.tags[0][1] !== appPublicKey) {
+    // Check if this event is for our app by finding the "d" tag
+    const dTag = event.tags.find((tag) => tag[0] === 'd');
+    if (!dTag || dTag[1] !== appPublicKey) {
       return;
     }
 
