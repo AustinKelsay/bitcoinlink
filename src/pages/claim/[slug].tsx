@@ -347,6 +347,10 @@ export default function ClaimPage(): React.ReactElement {
             showToast('warn', 'Invalid Input', 'The provided input is invalid.');
             return;
           }
+        } else {
+          setIsSubmitting(false);
+          showToast('warn', 'Empty Input', 'Please enter a lightning address, invoice, or LNURL.');
+          return;
         }
       } catch {
         console.error('Error sending payment');
@@ -358,6 +362,8 @@ export default function ClaimPage(): React.ReactElement {
         );
         return;
       }
+    } else {
+      setIsSubmitting(false);
     }
   };
 
