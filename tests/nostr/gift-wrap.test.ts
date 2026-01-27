@@ -75,9 +75,9 @@ describe('Gift Wrap', () => {
       expect(() => decryptBitcoinLink(giftWrap, wrongKey)).toThrow();
     });
 
-    it('should throw error for invalid payload type', async () => {
-      // Create a valid gift wrap but with wrong payload type
-      // We can't easily test this without mocking, so we test the validation message
+    it('should successfully decrypt valid payload type', async () => {
+      // We can't easily test invalid payload type without mocking,
+      // so we verify that valid payload type decrypts successfully
       const { giftWrap, receiverPrivateKey } = await createBitcoinLink(testPayload);
 
       // Verify that a valid payload decrypts successfully

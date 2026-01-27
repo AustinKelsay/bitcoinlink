@@ -188,7 +188,7 @@ function MutinyModal() {
 
 Returns: Subscription object
 
-**fetchedEvents**
+#### fetchedEvents
 
 | Type | Description |
 |------|-------------|

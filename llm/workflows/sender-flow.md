@@ -104,6 +104,10 @@ const handleAlbySubmit = async () => {
     showToast('warn', 'Invalid Input', 'Please enter a valid number of links.');
     return;
   }
+  if (!satsPerLink || satsPerLink < 1) {
+    showToast('warn', 'Invalid Input', 'Please enter a valid amount of sats per link.');
+    return;
+  }
 
   // Create NWC client
   const newNwc = nwc.NWCClient.withNewSecret();
@@ -125,7 +129,11 @@ const handleAlbySubmit = async () => {
   const nwcUrl = newNwc.getNostrWalletConnectUrl();
 
   // Generate links
-  const links = await generateLinksFromNWC(nwcUrl);
+  const links = await generateLinksFromNWC({
+    nwcUrl,
+    numberOfLinks,
+    satsPerLink,
+  });
   setGeneratedLinks(links);
   setLinkModalVisible(true);
 };
@@ -288,7 +296,7 @@ Inside the encrypted content (the rumor):
 
 ### Shareable URL
 
-```
+```text
 https://bitcoinlink.app/claim/eyJldmVudElkIjoiYWJjMTIz...
 ```
 

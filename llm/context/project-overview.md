@@ -25,7 +25,7 @@ BitcoinLink solves this by:
 
 BitcoinLink stores all data on Nostr relays using encrypted events:
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         BitcoinLink Architecture                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
@@ -91,7 +91,7 @@ BitcoinLink stores all data on Nostr relays using encrypted events:
 ## How It Works
 
 ### Sender Flow (Link Creation)
-```
+```text
 1. User visits bitcoinlink.app
 2. Enters: number of links + sats per link
 3. Connects wallet (Alby or Mutiny)
@@ -106,7 +106,7 @@ BitcoinLink stores all data on Nostr relays using encrypted events:
 ```
 
 ### Recipient Flow (Claiming)
-```
+```text
 1. Recipient clicks shared link
 2. App decodes link: eventId, receiverPrivateKey, relays
 3. App checks for deletion event (already claimed?)
@@ -120,7 +120,7 @@ BitcoinLink stores all data on Nostr relays using encrypted events:
 
 ## Link URL Structure
 
-```
+```text
 https://bitcoinlink.app/claim/{base64url_encoded_json}
 ```
 

@@ -10,7 +10,7 @@ BitcoinLink implements a non-custodial security model using Nostr protocol featu
 
 BitcoinLink never has access to user funds:
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Payment Flow                                  │
 ├─────────────────────────────────────────────────────────────────┤
@@ -38,7 +38,7 @@ NWC URLs are protected using multi-layer encryption via gift wrap.
 
 ### Gift Wrap Structure
 
-```
+```text
 ┌─────────────────────────────────────┐
 │ Gift Wrap (Kind 1059)               │
 │ - pubkey: EPHEMERAL (random)        │  ← Hides sender identity
@@ -103,7 +103,7 @@ export function decryptBitcoinLink(
 
 ### What's in the URL
 
-```
+```text
 https://bitcoinlink.app/claim/{base64url}
                               │
                               ▼
@@ -120,7 +120,7 @@ https://bitcoinlink.app/claim/{base64url}
 
 ### What's Stored on Relays
 
-```
+```text
 ┌─────────────────────────────────────────────┐
 │ Gift Wrap Event (Kind 1059)                 │
 │                                             │
@@ -150,7 +150,7 @@ Deletion events prevent double-claiming.
 
 ### How It Works
 
-```
+```text
 Before Claim:
 ┌───────────────┐
 │ Gift Wrap     │  Event exists
