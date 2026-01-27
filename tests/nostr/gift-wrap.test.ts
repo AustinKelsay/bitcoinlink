@@ -153,4 +153,106 @@ describe('Gift Wrap', () => {
       }
     });
   });
+
+  describe('key validation', () => {
+    it('should throw for truncated private key', async () => {
+      const { giftWrap } = await createBitcoinLink(testPayload);
+      
+      const truncatedKeys = ['a', 'a'.repeat(32), 'a'.repeat(63)];
+      for (const key of truncatedKeys) {
+        expect(() => decryptBitcoinLink(giftWrap, key)).toThrow();
+      }
+    });
+
+    it('should throw for empty private key', async () => {
+      const { giftWrap } = await createBitcoinLink(testPayload);
+      expect(() => decryptBitcoinLink(giftWrap, '')).toThrow();
+    });
+
+    it('should throw for non-hex private key', async () => {
+      const { giftWrap } = await createBitcoinLink(testPayload);
+      const invalidKey = 'z'.repeat(64);
+      expect(() => decryptBitcoinLink(giftWrap, invalidKey)).toThrow();
+    });
+  });
+
+  describe('event structure', () => {
+    it('should create valid Nostr event structure', async () => {
+      const result = await createBitcoinLink(testPayload);
+      const event = result.giftWrap;
+
+      expect(event.id).toHaveLength(64);
+      expect(event.pubkey).toHaveLength(64);
+      expect(typeof event.created_at).toBe('number');
+      expect(event.created_at).toBeGreaterThan(0);
+      expect(event.kind).toBe(GIFT_WRAP_KIND);
+      expect(Array.isArray(event.tags)).toBe(true);
+      expect(typeof event.content).toBe('string');
+      expect(event.sig).toHaveLength(128);
+    });
+
+    it('should not contain plaintext payload in content', async () => {
+      const result = await createBitcoinLink(testPayload);
+      
+      expect(result.giftWrap.content).not.toContain(testPayload.nwcUrl);
+      expect(result.giftWrap.content).not.toContain('bitcoinlink');
+    });
+  });
+
+  describe('batch operations', () => {
+    it('should handle 50 concurrent creations', async () => {
+      const batchSize = 50;
+      const promises = Array(batchSize).fill(null).map(() => createBitcoinLink(testPayload));
+      const results = await Promise.all(promises);
+
+      expect(results.length).toBe(batchSize);
+      
+      const eventIds = new Set(results.map(r => r.giftWrap.id));
+      const privateKeys = new Set(results.map(r => r.receiverPrivateKey));
+      expect(eventIds.size).toBe(batchSize);
+      expect(privateKeys.size).toBe(batchSize);
+    });
+  });
+
+  describe('payload edge cases', () => {
+    it('should handle NWC URL with all special characters', async () => {
+      const specialPayload: BitcoinLinkPayload = {
+        type: 'bitcoinlink',
+        nwcUrl: 'nostr+walletconnect://test?relay=wss://r.com&secret=!@#$%^&*()_+-=[]{}|;:,.<>?',
+        amount: 100,
+      };
+
+      const { giftWrap, receiverPrivateKey } = await createBitcoinLink(specialPayload);
+      const decrypted = decryptBitcoinLink(giftWrap, receiverPrivateKey);
+
+      expect(decrypted.nwcUrl).toBe(specialPayload.nwcUrl);
+    });
+
+    it('should handle very long NWC URL', async () => {
+      const longNwcUrl = 'nostr+walletconnect://test?' + 'relay=wss://r.com&'.repeat(100) + 'secret=abc';
+      const longPayload: BitcoinLinkPayload = {
+        type: 'bitcoinlink',
+        nwcUrl: longNwcUrl,
+        amount: 100,
+      };
+
+      const { giftWrap, receiverPrivateKey } = await createBitcoinLink(longPayload);
+      const decrypted = decryptBitcoinLink(giftWrap, receiverPrivateKey);
+
+      expect(decrypted.nwcUrl).toBe(longNwcUrl);
+    });
+
+    it('should handle floating point amounts', async () => {
+      const precisionPayload: BitcoinLinkPayload = {
+        type: 'bitcoinlink',
+        nwcUrl: 'nostr+walletconnect://test?relay=wss://r.com&secret=s',
+        amount: 0.1 + 0.2,
+      };
+
+      const { giftWrap, receiverPrivateKey } = await createBitcoinLink(precisionPayload);
+      const decrypted = decryptBitcoinLink(giftWrap, receiverPrivateKey);
+
+      expect(decrypted.amount).toBe(0.1 + 0.2);
+    });
+  });
 });

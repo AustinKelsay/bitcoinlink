@@ -172,4 +172,178 @@ describe('Claim Flow Integration', () => {
       expect(linkData.receiverPrivateKey.length).toBe(64); // Private key is 32 bytes hex
     });
   });
+
+  describe('error scenarios', () => {
+    it('should fail with tampered gift wrap content', async () => {
+      const payload: BitcoinLinkPayload = {
+        type: 'bitcoinlink',
+        nwcUrl: testNwcUrl,
+        amount: testAmount,
+      };
+
+      const { giftWrap, receiverPrivateKey } = await createBitcoinLink(payload);
+      
+      const tamperedGiftWrap = {
+        ...giftWrap,
+        content: giftWrap.content.substring(0, giftWrap.content.length - 10) + 'xxxxxxxxxx',
+      };
+
+      expect(() => decryptBitcoinLink(tamperedGiftWrap, receiverPrivateKey)).toThrow();
+    });
+
+    it('should fail with partial private key', async () => {
+      const payload: BitcoinLinkPayload = {
+        type: 'bitcoinlink',
+        nwcUrl: testNwcUrl,
+        amount: testAmount,
+      };
+
+      const { giftWrap, receiverPrivateKey } = await createBitcoinLink(payload);
+      const partialKey = receiverPrivateKey.substring(0, 32);
+
+      expect(() => decryptBitcoinLink(giftWrap, partialKey)).toThrow();
+    });
+
+    it('should detect amount mismatch between URL and payload', async () => {
+      const payload: BitcoinLinkPayload = {
+        type: 'bitcoinlink',
+        nwcUrl: testNwcUrl,
+        amount: 1000,
+      };
+
+      const { giftWrap, receiverPrivateKey } = await createBitcoinLink(payload);
+      const url = createClaimUrl(giftWrap.id, receiverPrivateKey, 2000);
+      
+      const encodedPart = url.split('/claim/')[1];
+      const linkData = decodeLink(encodedPart);
+      
+      // URL says 2000
+      expect(linkData.amountSats).toBe(2000);
+      
+      // Payload says 1000
+      const decrypted = decryptBitcoinLink(giftWrap, linkData.receiverPrivateKey);
+      expect(decrypted.amount).toBe(1000);
+    });
+  });
+
+  describe('relay configurations', () => {
+    it('should work with single relay', async () => {
+      const payload: BitcoinLinkPayload = {
+        type: 'bitcoinlink',
+        nwcUrl: testNwcUrl,
+        amount: testAmount,
+      };
+
+      const { giftWrap, receiverPrivateKey } = await createBitcoinLink(payload);
+      const url = createClaimUrl(giftWrap.id, receiverPrivateKey, testAmount, ['wss://single.relay']);
+
+      const encodedPart = url.split('/claim/')[1];
+      const linkData = decodeLink(encodedPart);
+
+      expect(linkData.relays).toEqual(['wss://single.relay']);
+    });
+
+    it('should work with many relays', async () => {
+      const manyRelays = Array(10).fill(null).map((_, i) => `wss://relay${i}.com`);
+
+      const payload: BitcoinLinkPayload = {
+        type: 'bitcoinlink',
+        nwcUrl: testNwcUrl,
+        amount: testAmount,
+      };
+
+      const { giftWrap, receiverPrivateKey } = await createBitcoinLink(payload);
+      const url = createClaimUrl(giftWrap.id, receiverPrivateKey, testAmount, manyRelays);
+
+      const encodedPart = url.split('/claim/')[1];
+      const linkData = decodeLink(encodedPart);
+
+      expect(linkData.relays).toEqual(manyRelays);
+    });
+
+    it('should work with empty relay list', async () => {
+      const payload: BitcoinLinkPayload = {
+        type: 'bitcoinlink',
+        nwcUrl: testNwcUrl,
+        amount: testAmount,
+      };
+
+      const { giftWrap, receiverPrivateKey } = await createBitcoinLink(payload);
+      const url = createClaimUrl(giftWrap.id, receiverPrivateKey, testAmount, []);
+
+      const encodedPart = url.split('/claim/')[1];
+      const linkData = decodeLink(encodedPart);
+
+      expect(linkData.relays).toEqual([]);
+    });
+  });
+
+  describe('concurrent operations', () => {
+    it('should handle 20 concurrent link creations', async () => {
+      const promises = Array(20).fill(null).map(async (_, i) => {
+        const payload: BitcoinLinkPayload = {
+          type: 'bitcoinlink',
+          nwcUrl: testNwcUrl,
+          amount: testAmount + i,
+        };
+
+        const { giftWrap, receiverPrivateKey } = await createBitcoinLink(payload);
+        const url = createClaimUrl(giftWrap.id, receiverPrivateKey, testAmount + i);
+
+        return { giftWrap, receiverPrivateKey, url, amount: testAmount + i };
+      });
+
+      const results = await Promise.all(promises);
+
+      const eventIds = new Set(results.map(r => r.giftWrap.id));
+      expect(eventIds.size).toBe(20);
+
+      for (const { giftWrap, receiverPrivateKey, amount } of results) {
+        const decrypted = decryptBitcoinLink(giftWrap, receiverPrivateKey);
+        expect(decrypted.amount).toBe(amount);
+      }
+    });
+  });
+
+  describe('payload integrity', () => {
+    it('should preserve NWC URL through full flow', async () => {
+      const nwcUrls = [
+        'nostr+walletconnect://a?relay=wss://r.com&secret=s',
+        'nostr+walletconnect://' + 'a'.repeat(64) + '?relay=wss://relay.damus.io&secret=' + 'x'.repeat(64),
+        'nostr+walletconnect://pubkey?relay=wss://r1.com&relay=wss://r2.com&secret=test',
+      ];
+
+      for (const nwcUrl of nwcUrls) {
+        const payload: BitcoinLinkPayload = {
+          type: 'bitcoinlink',
+          nwcUrl,
+          amount: testAmount,
+        };
+
+        const { giftWrap, receiverPrivateKey } = await createBitcoinLink(payload);
+        const url = createClaimUrl(giftWrap.id, receiverPrivateKey, testAmount);
+        
+        const encodedPart = url.split('/claim/')[1];
+        const linkData = decodeLink(encodedPart);
+        const decrypted = decryptBitcoinLink(giftWrap, linkData.receiverPrivateKey);
+
+        expect(decrypted.nwcUrl).toBe(nwcUrl);
+      }
+    });
+
+    it('should handle unicode in NWC URL', async () => {
+      const unicodeNwcUrl = 'nostr+walletconnect://pubkey?relay=wss://r.com&secret=秘密🔐';
+      
+      const payload: BitcoinLinkPayload = {
+        type: 'bitcoinlink',
+        nwcUrl: unicodeNwcUrl,
+        amount: testAmount,
+      };
+
+      const { giftWrap, receiverPrivateKey } = await createBitcoinLink(payload);
+      const decrypted = decryptBitcoinLink(giftWrap, receiverPrivateKey);
+
+      expect(decrypted.nwcUrl).toBe(unicodeNwcUrl);
+    });
+  });
 });

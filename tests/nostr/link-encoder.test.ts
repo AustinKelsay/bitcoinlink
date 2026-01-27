@@ -248,4 +248,91 @@ describe('Link Encoder', () => {
       }
     });
   });
+
+  describe('malformed input', () => {
+    it('should throw for truncated base64 data', () => {
+      const validLink = encodeLink(testLink);
+      const truncated = validLink.substring(0, validLink.length / 2);
+      expect(() => decodeLink(truncated)).toThrow();
+    });
+
+    it('should throw for corrupted data', () => {
+      const validLink = encodeLink(testLink);
+      const corrupted = validLink.substring(0, 10) + '!!!' + validLink.substring(13);
+      expect(() => decodeLink(corrupted)).toThrow();
+    });
+
+    it('should throw for whitespace-only input', () => {
+      expect(() => decodeLink('   ')).toThrow();
+      expect(() => decodeLink('\n\t')).toThrow();
+    });
+  });
+
+  describe('URL safety', () => {
+    it('should produce URL-safe output without +/= characters', () => {
+      for (let i = 0; i < 20; i++) {
+        const link: EncodedLink = {
+          eventId: Math.random().toString(36).repeat(10).substring(0, 64),
+          receiverPrivateKey: Math.random().toString(36).repeat(10).substring(0, 64),
+          relays: ['wss://relay.com/' + Math.random().toString(36)],
+          amountSats: Math.floor(Math.random() * 1000000),
+        };
+
+        const encoded = encodeLink(link);
+        expect(encoded).not.toMatch(/[+/=]/);
+        expect(encoded).toMatch(/^[A-Za-z0-9_-]+$/);
+      }
+    });
+
+    it('should work embedded in actual URLs', () => {
+      const encoded = encodeLink(testLink);
+      
+      const url = new URL(`https://bitcoinlink.app/claim/${encoded}`);
+      expect(url.pathname).toContain(encoded);
+      
+      const queryUrl = new URL(`https://example.com?link=${encoded}`);
+      expect(queryUrl.searchParams.get('link')).toBe(encoded);
+    });
+  });
+
+  describe('determinism', () => {
+    it('should produce consistent output for same input', () => {
+      const encoded1 = encodeLink(testLink);
+      const encoded2 = encodeLink(testLink);
+      const encoded3 = encodeLink({ ...testLink });
+
+      expect(encoded1).toBe(encoded2);
+      expect(encoded1).toBe(encoded3);
+    });
+  });
+
+  describe('claim URL edge cases', () => {
+    it('should handle 50 relays', () => {
+      const manyRelays = Array(50).fill(null).map((_, i) => `wss://relay${i}.example.com`);
+      const url = createClaimUrl(
+        testLink.eventId,
+        testLink.receiverPrivateKey,
+        testLink.amountSats,
+        manyRelays
+      );
+
+      expect(url).toMatch(/^https:\/\/bitcoinlink\.app\/claim\//);
+      
+      const encoded = url.split('/claim/')[1];
+      const decoded = decodeLink(encoded);
+      expect(decoded.relays).toEqual(manyRelays);
+    });
+
+    it('should handle minimum valid input', () => {
+      const url = createClaimUrl('a', 'b', 0, []);
+
+      expect(url).toContain('https://bitcoinlink.app/claim/');
+      
+      const encoded = url.split('/claim/')[1];
+      const decoded = decodeLink(encoded);
+      expect(decoded.eventId).toBe('a');
+      expect(decoded.amountSats).toBe(0);
+      expect(decoded.relays).toEqual([]);
+    });
+  });
 });

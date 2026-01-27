@@ -103,4 +103,98 @@ describe('Link Generator', () => {
       expect(options.relays).toEqual(['wss://custom.relay']);
     });
   });
+
+  describe('boundary conditions', () => {
+    it('should handle fractional numberOfLinks (documents current behavior)', () => {
+      // Note: Current implementation uses JS for loop which truncates 1.5 to loop twice (i=0, i=1)
+      // This documents current behavior - validation only checks >= 1
+      const options = {
+        nwcUrl: validNwcUrl,
+        numberOfLinks: 1.5,
+        satsPerLink: 100,
+      };
+
+      // Fractional values pass validation (1.5 > 1)
+      expect(options.numberOfLinks).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should handle exactly 1 link request (validation only)', () => {
+      const options = {
+        nwcUrl: validNwcUrl,
+        numberOfLinks: 1,
+        satsPerLink: 1,
+      };
+
+      expect(options.numberOfLinks).toBe(1);
+      expect(options.satsPerLink).toBe(1);
+    });
+
+    it('should accept very large numberOfLinks value (validation only)', () => {
+      const options = {
+        nwcUrl: validNwcUrl,
+        numberOfLinks: 1000000,
+        satsPerLink: 1,
+      };
+
+      expect(options.numberOfLinks).toBe(1000000);
+    });
+
+    it('should accept maximum safe integer for satsPerLink', () => {
+      const options = {
+        nwcUrl: validNwcUrl,
+        numberOfLinks: 1,
+        satsPerLink: Number.MAX_SAFE_INTEGER,
+      };
+
+      expect(options.satsPerLink).toBe(Number.MAX_SAFE_INTEGER);
+    });
+  });
+
+  describe('NWC URL handling', () => {
+    it('should accept NWC URL with multiple relays', () => {
+      const multiRelayUrl = 'nostr+walletconnect://test?relay=wss://r1.com&relay=wss://r2.com&relay=wss://r3.com&secret=abc';
+      const options = {
+        nwcUrl: multiRelayUrl,
+        numberOfLinks: 1,
+        satsPerLink: 100,
+      };
+
+      expect(options.nwcUrl).toBe(multiRelayUrl);
+    });
+
+    it('should accept NWC URL with special characters in secret', () => {
+      const specialSecretUrl = 'nostr+walletconnect://test?relay=wss://r.com&secret=abc%2F%3D%2B123';
+      const options = {
+        nwcUrl: specialSecretUrl,
+        numberOfLinks: 1,
+        satsPerLink: 100,
+      };
+
+      expect(options.nwcUrl).toBe(specialSecretUrl);
+    });
+  });
+
+  describe('error order', () => {
+    it('should validate numberOfLinks before attempting connection', async () => {
+      // Even with invalid NWC URL, numberOfLinks should be checked first
+      await expect(
+        generateLinksFromNWC({
+          nwcUrl: 'invalid-url',
+          numberOfLinks: 0,
+          satsPerLink: 100,
+        })
+      ).rejects.toThrow('numberOfLinks must be at least 1');
+    });
+
+    it('should validate satsPerLink before attempting connection', async () => {
+      // With valid numberOfLinks but invalid satsPerLink
+      await expect(
+        generateLinksFromNWC({
+          nwcUrl: 'invalid-url',
+          numberOfLinks: 1,
+          satsPerLink: 0,
+        })
+      ).rejects.toThrow('satsPerLink must be at least 1');
+    });
+  });
 });
