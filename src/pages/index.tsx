@@ -8,12 +8,7 @@ import MutinyModal from '@/components/mutiny/MutinyModal';
 import { useToast } from '@/hooks/useToast';
 import 'primeicons/primeicons.css';
 import LinkModal from '@/components/LinkModal';
-import {
-  createBitcoinLink,
-  BitcoinLinkNostrClient,
-  createClaimUrl,
-} from '@/lib/nostr';
-import type { BitcoinLinkPayload } from '@/lib/nostr';
+import { generateLinksFromNWC } from '@/lib/nostr';
 
 export default function Home(): React.ReactElement {
   const [numberOfLinks, setNumberOfLinks] = useState<number | null>(null);
@@ -24,38 +19,6 @@ export default function Home(): React.ReactElement {
   const [generatingLinks, setGeneratingLinks] = useState(false);
 
   const { showToast } = useToast();
-
-  const generateLinksFromNWC = async (nwcUrl: string): Promise<string[]> => {
-    const client = new BitcoinLinkNostrClient();
-    const links: string[] = [];
-
-    try {
-      await client.connect();
-
-      for (let i = 0; i < (numberOfLinks ?? 0); i++) {
-        const payload: BitcoinLinkPayload = {
-          type: 'bitcoinlink',
-          nwcUrl,
-          amount: satsPerLink ?? 0,
-        };
-
-        const { giftWrap, receiverPrivateKey } = await createBitcoinLink(payload);
-        await client.publish(giftWrap);
-
-        const claimUrl = createClaimUrl(
-          giftWrap.id,
-          receiverPrivateKey,
-          satsPerLink ?? 0,
-          client.getRelays()
-        );
-        links.push(claimUrl);
-      }
-
-      return links;
-    } finally {
-      client.close();
-    }
-  };
 
   const handleAlbySubmit = async (): Promise<void> => {
     if (!numberOfLinks || numberOfLinks < 1) {
@@ -88,7 +51,11 @@ export default function Home(): React.ReactElement {
         setGeneratingLinks(true);
 
         try {
-          const links = await generateLinksFromNWC(newNWCUrl);
+          const links = await generateLinksFromNWC({
+            nwcUrl: newNWCUrl,
+            numberOfLinks: numberOfLinks!,
+            satsPerLink: satsPerLink!,
+          });
           setGeneratedLinks(links);
           setLinkModalVisible(true);
           showToast(
@@ -176,7 +143,6 @@ export default function Home(): React.ReactElement {
           setMutinyModalVisible={setMutinyModalVisible}
           setLinkModalVisible={setLinkModalVisible}
           setGeneratedLinks={setGeneratedLinks}
-          generatingLinks={generatingLinks}
           setGeneratingLinks={setGeneratingLinks}
           numberOfLinks={numberOfLinks ?? 0}
           satsPerLink={satsPerLink ?? 0}

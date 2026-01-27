@@ -9,3 +9,4 @@ export * from './gift-wrap';
 export * from './link-encoder';
 export * from './client';
 export * from './nwc-client';
+export * from './link-generator';

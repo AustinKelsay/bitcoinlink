@@ -1,10 +1,26 @@
+/**
+ * BOLT11 Lightning invoice utilities.
+ * Provides functions for parsing, validating, and extracting data from BOLT11 invoices.
+ */
+
 import bolt11Decoder from 'light-bolt11-decoder';
 
-interface ValidationResult {
+/**
+ * Result of validating a BOLT11 invoice.
+ */
+export interface ValidationResult {
+  /** Whether the invoice is valid */
   valid: boolean;
+  /** Reason for validation failure (only present when valid is false) */
   reason?: string;
 }
 
+/**
+ * Extract the description from a BOLT11 invoice.
+ *
+ * @param invoice - The BOLT11 invoice string
+ * @returns The description string, or null if not present
+ */
 export const getBolt11Description = (invoice: string): string | null => {
   const decoded = bolt11Decoder.decode(invoice);
   const descriptionSection = decoded.sections.find(
@@ -13,17 +29,31 @@ export const getBolt11Description = (invoice: string): string | null => {
   return descriptionSection ? String(descriptionSection.value) : null;
 };
 
+/**
+ * Extract the amount in satoshis from a BOLT11 invoice.
+ *
+ * @param invoice - The BOLT11 invoice string
+ * @returns The amount in satoshis, or null if not present
+ */
 export const getBolt11Amount = (invoice: string): number | null => {
-  const decoded = bolt11Decoder.decode(invoice) ;
+  const decoded = bolt11Decoder.decode(invoice);
   const amountSection = decoded.sections.find(
     (section) => section.name === 'amount'
   );
+  // Amount in BOLT11 is in millisatoshis, convert to satoshis
   return amountSection ? Number(amountSection.value) / 1000 : null;
 };
 
+/**
+ * Validate a BOLT11 invoice.
+ * Checks for valid structure, unexpired timestamp, valid payment hash, and valid amount.
+ *
+ * @param invoice - The BOLT11 invoice string to validate
+ * @returns Validation result with valid flag and optional reason
+ */
 export const validateBolt11 = (invoice: string): ValidationResult => {
   try {
-    const decoded = bolt11Decoder.decode(invoice) ;
+    const decoded = bolt11Decoder.decode(invoice);
 
     // Check if the invoice has expired
     const timestampSection = decoded.sections.find(

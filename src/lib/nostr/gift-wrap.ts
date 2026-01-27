@@ -43,6 +43,32 @@ export async function createBitcoinLink(
 }
 
 /**
+ * Validate that a payload has the required BitcoinLinkPayload structure.
+ *
+ * @param payload - The payload to validate
+ * @throws If the payload is missing required fields or has invalid types
+ */
+function validatePayload(payload: unknown): asserts payload is BitcoinLinkPayload {
+  if (typeof payload !== 'object' || payload === null) {
+    throw new Error('Invalid payload: expected an object');
+  }
+
+  const p = payload as Record<string, unknown>;
+
+  if (p.type !== 'bitcoinlink') {
+    throw new Error(`Invalid payload type: expected 'bitcoinlink', got '${p.type}'`);
+  }
+
+  if (typeof p.nwcUrl !== 'string' || p.nwcUrl.length === 0) {
+    throw new Error('Invalid payload: nwcUrl must be a non-empty string');
+  }
+
+  if (typeof p.amount !== 'number' || !Number.isFinite(p.amount) || p.amount < 0) {
+    throw new Error('Invalid payload: amount must be a non-negative finite number');
+  }
+}
+
+/**
  * Decrypt a gift-wrapped Bitcoin Link to extract the payload.
  *
  * @param giftWrap - The kind 1059 gift wrap event
@@ -59,11 +85,15 @@ export function decryptBitcoinLink(
   }
 
   const rumor = decryptDirectMessage(giftWrap, receiverPrivateKey);
-  const payload: BitcoinLinkPayload = JSON.parse(rumor.content);
 
-  if (payload.type !== 'bitcoinlink') {
-    throw new Error(`Invalid payload type: expected 'bitcoinlink', got '${payload.type}'`);
+  let payload: unknown;
+  try {
+    payload = JSON.parse(rumor.content);
+  } catch {
+    throw new Error('Invalid payload: content is not valid JSON');
   }
+
+  validatePayload(payload);
 
   return payload;
 }

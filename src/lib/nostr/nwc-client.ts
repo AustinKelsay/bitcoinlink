@@ -4,7 +4,12 @@
 
 import { NostrWalletConnectClient, parseNWCURL } from 'snstr';
 
+/**
+ * Result from a successful NWC payment.
+ * Contains the preimage as proof of payment.
+ */
 export interface PaymentResult {
+  /** The payment preimage (32 bytes hex-encoded) */
   preimage: string;
 }
 

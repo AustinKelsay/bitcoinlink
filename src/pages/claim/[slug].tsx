@@ -95,14 +95,19 @@ export default function ClaimPage(): React.ReactElement {
     }
   }, [slug, fetchLinkData]);
 
-  const decodeLnurl = (lnurl: string, name?: string): string | undefined => {
+  /**
+   * Decode a bech32-encoded LNURL to its original URL.
+   * @param lnurl - The bech32-encoded LNURL string
+   * @returns The decoded URL string, or undefined if decoding fails
+   */
+  const decodeLnurl = (lnurl: string): string | undefined => {
     try {
       const { words: dataPart } = bech32.decode(lnurl, 2000);
       const requestByteArray = bech32.fromWords(dataPart);
       const decoded = new TextDecoder().decode(Uint8Array.from(requestByteArray));
       return decoded;
     } catch (error) {
-      console.error('There was a problem decoding the lnurl:', name, error);
+      console.error('There was a problem decoding the lnurl:', error);
       showToast(
         'error',
         'LNURL Decoding Error',
@@ -111,44 +116,52 @@ export default function ClaimPage(): React.ReactElement {
     }
   };
 
-  const parseLightningAddress = (inputValue: string): ParsedInput | false => {
-    if (typeof inputValue !== 'string') return false;
+  /**
+   * Parse and validate user input as a Lightning payment destination.
+   * Supports LNURL, BOLT11 invoices, and Lightning addresses.
+   *
+   * @param inputValue - The user input to parse
+   * @returns Parsed input with type and data, or null if invalid
+   */
+  const parseLightningAddress = (inputValue: string): ParsedInput | null => {
+    if (typeof inputValue !== 'string') return null;
 
     if (inputValue.toLowerCase().startsWith('lnurl')) {
       const decoded = decodeLnurl(inputValue);
 
       if (!decoded) {
         showToast('warn', 'Invalid LNURL', 'This is not a valid LNURL.');
-        return false;
-      } else {
-        return { type: 'lnurl', data: decoded };
+        return null;
       }
-    } else if (inputValue.toLowerCase().startsWith('lnbc')) {
+      return { type: 'lnurl', data: decoded };
+    }
+
+    if (inputValue.toLowerCase().startsWith('lnbc')) {
       try {
         const result = validateBolt11(inputValue);
         if (!result.valid) {
           showToast('warn', 'Invalid Invoice', result.reason || 'This is not a valid invoice.');
-          return false;
+          return null;
         }
         return { type: 'invoice', data: inputValue };
       } catch {
         showToast('warn', 'Invalid Invoice', 'This is not a valid invoice.');
-        return false;
-      }
-    } else {
-      const [username, domain] = inputValue.split('@');
-
-      if (!!username && !!domain && domain.includes('.')) {
-        return { type: 'address', data: inputValue };
-      } else {
-        showToast(
-          'warn',
-          'Invalid Lightning Address',
-          'This is not a valid lightning address.'
-        );
-        return false;
+        return null;
       }
     }
+
+    // Try to parse as Lightning address (user@domain.com)
+    const [username, domain] = inputValue.split('@');
+    if (username && domain && domain.includes('.')) {
+      return { type: 'address', data: inputValue };
+    }
+
+    showToast(
+      'warn',
+      'Invalid Lightning Address',
+      'This is not a valid lightning address.'
+    );
+    return null;
   };
 
   const fetchInvoice = async ({

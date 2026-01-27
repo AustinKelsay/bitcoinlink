@@ -45,6 +45,29 @@ export function decodeLink(encoded: string): EncodedLink {
 }
 
 /**
+ * Create an EncodedLink object from its constituent parts.
+ *
+ * @param eventId - The gift wrap event ID
+ * @param receiverPrivateKey - The receiver's private key
+ * @param amountSats - The amount in satoshis
+ * @param relays - Optional custom relay list (defaults to DEFAULT_RELAYS)
+ * @returns The EncodedLink object
+ */
+function createEncodedLink(
+  eventId: string,
+  receiverPrivateKey: string,
+  amountSats: number,
+  relays: string[] = DEFAULT_RELAYS
+): EncodedLink {
+  return {
+    eventId,
+    receiverPrivateKey,
+    relays,
+    amountSats,
+  };
+}
+
+/**
  * Create a full claim URL from link data.
  *
  * @param eventId - The gift wrap event ID
@@ -59,12 +82,7 @@ export function createClaimUrl(
   amountSats: number,
   relays: string[] = DEFAULT_RELAYS
 ): string {
-  const link: EncodedLink = {
-    eventId,
-    receiverPrivateKey,
-    relays,
-    amountSats,
-  };
+  const link = createEncodedLink(eventId, receiverPrivateKey, amountSats, relays);
   const encoded = encodeLink(link);
   return `https://bitcoinlink.app/claim/${encoded}`;
 }
@@ -84,12 +102,7 @@ export function createClaimPath(
   amountSats: number,
   relays: string[] = DEFAULT_RELAYS
 ): string {
-  const link: EncodedLink = {
-    eventId,
-    receiverPrivateKey,
-    relays,
-    amountSats,
-  };
+  const link = createEncodedLink(eventId, receiverPrivateKey, amountSats, relays);
   const encoded = encodeLink(link);
   return `/claim/${encoded}`;
 }
