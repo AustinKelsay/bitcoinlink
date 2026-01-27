@@ -78,7 +78,7 @@ export default function ClaimPage(): React.ReactElement {
       const { words: dataPart } = bech32.decode(lnurl, 2000);
       const requestByteArray = bech32.fromWords(dataPart);
 
-      const decoded = Buffer.from(requestByteArray).toString();
+      const decoded = new TextDecoder().decode(Uint8Array.from(requestByteArray));
       return decoded;
     } catch (error) {
       console.error('There was a problem decoding the lnurl:', name, error);
