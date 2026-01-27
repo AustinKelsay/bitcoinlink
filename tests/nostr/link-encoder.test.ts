@@ -80,6 +80,28 @@ describe('Link Encoder', () => {
     it('should throw for invalid input', () => {
       expect(() => decodeLink('not-valid-base64!')).toThrow();
     });
+
+    it('should throw for empty string', () => {
+      expect(() => decodeLink('')).toThrow();
+    });
+
+    it('should throw for malformed JSON in valid base64', () => {
+      // "not json" in base64
+      const notJson = Buffer.from('not json').toString('base64').replace(/=/g, '');
+      expect(() => decodeLink(notJson)).toThrow();
+    });
+
+    it('should handle zero amount', () => {
+      const linkWithZeroAmount: EncodedLink = {
+        ...testLink,
+        amountSats: 0,
+      };
+
+      const encoded = encodeLink(linkWithZeroAmount);
+      const decoded = decodeLink(encoded);
+
+      expect(decoded.amountSats).toBe(0);
+    });
   });
 
   describe('createClaimUrl', () => {
@@ -151,6 +173,44 @@ describe('Link Encoder', () => {
       const decoded = decodeLink(encoded);
 
       expect(decoded.eventId).toBe(testLink.eventId);
+    });
+  });
+
+  describe('edge cases', () => {
+    it('should handle empty relays array', () => {
+      const linkWithNoRelays: EncodedLink = {
+        ...testLink,
+        relays: [],
+      };
+
+      const encoded = encodeLink(linkWithNoRelays);
+      const decoded = decodeLink(encoded);
+
+      expect(decoded.relays).toEqual([]);
+    });
+
+    it('should handle very long event IDs', () => {
+      const linkWithLongId: EncodedLink = {
+        ...testLink,
+        eventId: 'f'.repeat(256),
+      };
+
+      const encoded = encodeLink(linkWithLongId);
+      const decoded = decodeLink(encoded);
+
+      expect(decoded.eventId).toBe(linkWithLongId.eventId);
+    });
+
+    it('should handle relay URLs with special characters', () => {
+      const linkWithSpecialRelays: EncodedLink = {
+        ...testLink,
+        relays: ['wss://relay.example.com/path?query=value&other=123'],
+      };
+
+      const encoded = encodeLink(linkWithSpecialRelays);
+      const decoded = decodeLink(encoded);
+
+      expect(decoded.relays).toEqual(linkWithSpecialRelays.relays);
     });
   });
 

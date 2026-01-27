@@ -60,12 +60,12 @@ describe('Gift Wrap', () => {
       expect(decrypted.amount).toBe(testPayload.amount);
     });
 
-    it('should throw error for wrong kind', async () => {
+    it('should throw error for wrong kind with specific message', async () => {
       const { giftWrap, receiverPrivateKey } = await createBitcoinLink(testPayload);
       const wrongKindEvent = { ...giftWrap, kind: 1 };
 
       expect(() => decryptBitcoinLink(wrongKindEvent, receiverPrivateKey))
-        .toThrow('Invalid event kind');
+        .toThrow(/Invalid event kind.*expected 1059.*got 1/);
     });
 
     it('should throw error for wrong private key', async () => {
@@ -83,6 +83,57 @@ describe('Gift Wrap', () => {
       // Verify that a valid payload decrypts successfully
       const decrypted = decryptBitcoinLink(giftWrap, receiverPrivateKey);
       expect(decrypted.type).toBe('bitcoinlink');
+    });
+  });
+
+  describe('edge cases', () => {
+    it('should handle zero amount payload', async () => {
+      const zeroPayload: BitcoinLinkPayload = {
+        type: 'bitcoinlink',
+        nwcUrl: 'nostr+walletconnect://test?relay=wss://r.com&secret=s',
+        amount: 0,
+      };
+
+      const { giftWrap, receiverPrivateKey } = await createBitcoinLink(zeroPayload);
+      const decrypted = decryptBitcoinLink(giftWrap, receiverPrivateKey);
+
+      expect(decrypted.amount).toBe(0);
+    });
+
+    it('should handle very large amounts', async () => {
+      const largePayload: BitcoinLinkPayload = {
+        type: 'bitcoinlink',
+        nwcUrl: 'nostr+walletconnect://test?relay=wss://r.com&secret=s',
+        amount: Number.MAX_SAFE_INTEGER,
+      };
+
+      const { giftWrap, receiverPrivateKey } = await createBitcoinLink(largePayload);
+      const decrypted = decryptBitcoinLink(giftWrap, receiverPrivateKey);
+
+      expect(decrypted.amount).toBe(Number.MAX_SAFE_INTEGER);
+    });
+
+    it('should handle NWC URL with unicode characters', async () => {
+      const unicodePayload: BitcoinLinkPayload = {
+        type: 'bitcoinlink',
+        nwcUrl: 'nostr+walletconnect://test?relay=wss://relay.com&secret=secret🔐',
+        amount: 100,
+      };
+
+      const { giftWrap, receiverPrivateKey } = await createBitcoinLink(unicodePayload);
+      const decrypted = decryptBitcoinLink(giftWrap, receiverPrivateKey);
+
+      expect(decrypted.nwcUrl).toBe(unicodePayload.nwcUrl);
+    });
+
+    it('should generate unique event IDs for concurrent creations', async () => {
+      const promises = Array(10).fill(null).map(() => createBitcoinLink(testPayload));
+      const results = await Promise.all(promises);
+
+      const eventIds = results.map(r => r.giftWrap.id);
+      const uniqueIds = new Set(eventIds);
+
+      expect(uniqueIds.size).toBe(10);
     });
   });
 
