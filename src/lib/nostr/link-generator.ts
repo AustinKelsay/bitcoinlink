@@ -3,6 +3,7 @@
  * Used by both the home page and MutinyModal.
  */
 
+import { parseNWCURL } from 'snstr';
 import { BitcoinLinkNostrClient } from './client';
 import { createBitcoinLink } from './gift-wrap';
 import { createClaimUrl } from './link-encoder';
@@ -35,6 +36,7 @@ export async function generateLinksFromNWC(
 ): Promise<string[]> {
   const { nwcUrl, numberOfLinks, satsPerLink, relays } = options;
 
+  // Validate basic parameters first (for better error messages)
   if (!nwcUrl || nwcUrl.trim().length === 0) {
     throw new Error('nwcUrl must be a non-empty string');
   }
@@ -52,6 +54,17 @@ export async function generateLinksFromNWC(
   }
   if (relays !== undefined && relays.length === 0) {
     throw new Error('relays array cannot be empty when provided');
+  }
+
+  // Validate NWC URL using snstr's parseNWCURL - this ensures the URL
+  // will also work at claim time when we use the same function
+  try {
+    parseNWCURL(nwcUrl);
+  } catch (error) {
+    throw new Error(
+      `Invalid NWC URL: ${error instanceof Error ? error.message : 'Unknown error'}. ` +
+      'The URL must be a valid nostr+walletconnect:// URL with relay and secret parameters.'
+    );
   }
 
   const client = new BitcoinLinkNostrClient(relays);

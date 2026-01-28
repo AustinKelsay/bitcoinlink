@@ -8,7 +8,7 @@ import { Dialog } from 'primereact/dialog';
 import { useToast } from '@/hooks/useToast';
 import 'primeicons/primeicons.css';
 import LinkModal from '@/components/LinkModal';
-import { generateLinksFromNWC } from '@/lib/nostr';
+import { generateLinksFromNWC, isValidNWCUrl } from '@/lib/nostr';
 
 // Dynamically import Bitcoin Connect components (required for NextJS)
 const BCButton = dynamic(
@@ -17,25 +17,10 @@ const BCButton = dynamic(
 );
 
 /**
- * Validate an NWC URL format.
+ * Validate an NWC URL format using snstr's parseNWCURL.
+ * This ensures consistency with the validation used at claim time.
  */
-const isValidNwcUrl = (url: string): boolean => {
-  if (!url) return false;
-  try {
-    if (!url.startsWith('nostr+walletconnect://')) return false;
-    const withoutProtocol = url.slice('nostr+walletconnect://'.length);
-    const [pubkey, queryString] = withoutProtocol.split('?');
-    if (!pubkey || !/^[a-f0-9]{64}$/i.test(pubkey)) return false;
-    const params = new URLSearchParams(queryString);
-    const relay = params.get('relay');
-    if (!relay) return false;
-    const secret = params.get('secret');
-    if (!secret || secret.length < 32) return false;
-    return true;
-  } catch {
-    return false;
-  }
-};
+const isValidNwcUrl = isValidNWCUrl;
 
 export default function Home(): React.ReactElement {
   // Form inputs
