@@ -71,8 +71,7 @@ export default function Home(): React.ReactElement {
    * Generate links from an NWC URL.
    */
   const handleGenerateLinks = useCallback(async (url: string): Promise<void> => {
-    if (!numberOfLinks || !satsPerLink) {
-      showToast('error', 'Error', 'Invalid link configuration.');
+    if (!validateInputs()) {
       return;
     }
     
@@ -82,8 +81,8 @@ export default function Home(): React.ReactElement {
     try {
       const links = await generateLinksFromNWC({
         nwcUrl: url,
-        numberOfLinks,
-        satsPerLink,
+        numberOfLinks: numberOfLinks!,
+        satsPerLink: satsPerLink!,
       });
       
       setGeneratedLinks(links);
@@ -99,7 +98,7 @@ export default function Home(): React.ReactElement {
     } finally {
       setGeneratingLinks(false);
     }
-  }, [numberOfLinks, satsPerLink, showToast]);
+  }, [validateInputs, numberOfLinks, satsPerLink, showToast]);
 
   /**
    * Handle wallet connection from Bitcoin Connect.
@@ -117,7 +116,7 @@ export default function Home(): React.ReactElement {
         showToast('success', 'Connected', 'Wallet connected with NWC support!');
       } else {
         // Extension connection - doesn't provide NWC URL directly
-        showToast('info', 'Connected', 'Wallet connected! You\'ll need to provide an NWC URL to generate links.');
+        showToast('error', 'NWC URL Required', 'Could not retrieve NWC URL from wallet. Please try reconnecting or use a different wallet.');
       }
     } catch (error) {
       console.error('Error getting connector config');
@@ -151,6 +150,9 @@ export default function Home(): React.ReactElement {
    * Handle manual NWC URL submission
    */
   const handleManualNwcSubmit = useCallback(() => {
+    if (!validateInputs()) {
+      return;
+    }
     const trimmed = manualNwcInput.trim();
     if (!isValidNwcUrl(trimmed)) {
       showToast('error', 'Invalid NWC URL', 'Please enter a valid nostr+walletconnect:// URL');
@@ -158,7 +160,7 @@ export default function Home(): React.ReactElement {
     }
     handleGenerateLinks(trimmed);
     setManualNwcInput('');
-  }, [manualNwcInput, handleGenerateLinks, showToast]);
+  }, [manualNwcInput, handleGenerateLinks, showToast, validateInputs]);
 
   /**
    * Handle Alby Hub OAuth flow
@@ -199,7 +201,7 @@ export default function Home(): React.ReactElement {
 
   const isLoading = generatingLinks;
   const totalBudget = (numberOfLinks ?? 0) * (satsPerLink ?? 0);
-  const hasValidInputs = numberOfLinks && numberOfLinks >= 1 && satsPerLink && satsPerLink >= 1;
+  const hasValidInputs = numberOfLinks && numberOfLinks >= 1 && Number.isInteger(numberOfLinks) && satsPerLink && satsPerLink >= 1 && Number.isInteger(satsPerLink);
 
   return (
     <main className={'flex flex-col items-center justify-evenly p-8'}>
