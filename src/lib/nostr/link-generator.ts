@@ -3,10 +3,9 @@
  * Used by both the home page and MutinyModal.
  */
 
-import { BitcoinLinkNostrClient } from './client';
-import { createBitcoinLink } from './gift-wrap';
-import { createClaimUrl } from './link-encoder';
-import type { BitcoinLinkPayload } from './types';
+import { parseNWCURL } from 'snstr';
+import type { BitcoinLinkPayload } from '@/lib/nostr';
+import { BitcoinLinkNostrClient, createBitcoinLink, createClaimUrl, normalizeNwcUrl } from '@/lib/nostr';
 
 /**
  * Options for generating Bitcoin links.
@@ -35,6 +34,7 @@ export async function generateLinksFromNWC(
 ): Promise<string[]> {
   const { nwcUrl, numberOfLinks, satsPerLink, relays } = options;
 
+  // Validate basic parameters first (for better error messages)
   if (!nwcUrl || nwcUrl.trim().length === 0) {
     throw new Error('nwcUrl must be a non-empty string');
   }
@@ -54,6 +54,23 @@ export async function generateLinksFromNWC(
     throw new Error('relays array cannot be empty when provided');
   }
 
+  // Normalize and validate NWC URL using snstr's parseNWCURL - this ensures the URL
+  // will also work at claim time when we use the same function
+  let normalizedUrl: string;
+  try {
+    normalizedUrl = normalizeNwcUrl(nwcUrl);
+  } catch (error) {
+    throw new Error('Invalid NWC URL format');
+  }
+
+  try {
+    parseNWCURL(normalizedUrl);
+  } catch (error) {
+    throw new Error(
+      'Invalid NWC URL. The URL must be a valid nostr+walletconnect:// URL with relay and secret parameters.'
+    );
+  }
+
   const client = new BitcoinLinkNostrClient(relays);
   const links: string[] = [];
 
@@ -63,7 +80,7 @@ export async function generateLinksFromNWC(
     for (let i = 0; i < numberOfLinks; i++) {
       const payload: BitcoinLinkPayload = {
         type: 'bitcoinlink',
-        nwcUrl,
+        nwcUrl: normalizedUrl,
         amount: satsPerLink,
       };
 

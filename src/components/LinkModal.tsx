@@ -1,14 +1,29 @@
+/**
+ * Modal dialog component for displaying and copying generated Bitcoin Links.
+ * Provides individual and bulk copy functionality for claim URLs.
+ */
+
 import React from 'react';
 import { Dialog } from 'primereact/dialog';
 import { Button } from 'primereact/button';
 import { useToast } from '@/hooks/useToast';
 
+/** Props for the LinkModal component */
 interface LinkModalProps {
+  /** Array of generated claim URLs to display */
   generatedLinks: string[] | null;
+  /** Whether the modal is currently visible */
   linkModalVisible: boolean;
+  /** Callback to control modal visibility */
   setLinkModalVisible: (visible: boolean) => void;
 }
 
+/**
+ * Modal component that displays generated Bitcoin Link claim URLs.
+ * Users can copy individual links or all links at once to their clipboard.
+ *
+ * @param props - Component props
+ */
 const LinkModal: React.FC<LinkModalProps> = ({
   generatedLinks,
   linkModalVisible,
@@ -16,6 +31,11 @@ const LinkModal: React.FC<LinkModalProps> = ({
 }) => {
   const { showToast } = useToast();
 
+  /**
+   * Copy a single link to the clipboard.
+   *
+   * @param text - The link text to copy
+   */
   const copyToClipboard = (text: string): void => {
     navigator.clipboard
       .writeText(text)
@@ -36,6 +56,9 @@ const LinkModal: React.FC<LinkModalProps> = ({
       });
   };
 
+  /**
+   * Copy all generated links to the clipboard as a newline-separated list.
+   */
   const copyAllLinks = (): void => {
     if (!generatedLinks) return;
     const allLinks = generatedLinks.join('\n');

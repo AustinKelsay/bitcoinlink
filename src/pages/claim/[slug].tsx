@@ -3,12 +3,9 @@ import { useRouter } from 'next/router';
 import { bech32 } from 'bech32';
 import StrikeInstructions from '@/components/strike/StrikeInstructions';
 import CashAppInstructions from '@/components/cashapp/CashAppInstructions';
-import MutinyInstructions from '@/components/mutiny/MutinyInstructions';
 import { validateBolt11 } from '@/utils/bolt11';
 import CashAppButton from '@/components/cashapp/CashAppButton';
-import MutinyButton from '@/components/mutiny/MutinyButton';
 import StrikeButton from '@/components/strike/StrikeButton';
-import AlbyButton from '@/components/AlbyButton';
 import { InputText } from 'primereact/inputtext';
 import { Button } from 'primereact/button';
 import { ProgressSpinner } from 'primereact/progressspinner';
@@ -34,12 +31,17 @@ export default function ClaimPage(): React.ReactElement {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isStrikeVisible, setIsStrikeVisible] = useState(false);
   const [isCashAppVisible, setIsCashAppVisible] = useState(false);
-  const [isMutinyVisible, setIsMutinyVisible] = useState(false);
   const router = useRouter();
 
   const { slug } = router.query;
   const { showToast } = useToast();
 
+  /**
+   * Fetch and decrypt the Bitcoin Link data from Nostr relays.
+   * Checks if the link has been claimed and retrieves the encrypted payload.
+   *
+   * @param encoded - The base64url-encoded link data from the URL slug
+   */
   const fetchLinkData = useCallback(async (encoded: string) => {
     try {
       // Decode the link URL
@@ -165,6 +167,12 @@ export default function ClaimPage(): React.ReactElement {
     return null;
   };
 
+  /**
+   * Fetch a Lightning invoice from an LNURL-pay callback endpoint.
+   *
+   * @param params - Object containing callback URL and amount in millisatoshis
+   * @returns The BOLT11 invoice string, or undefined if fetching fails
+   */
   const fetchInvoice = async ({
     callback,
     amount,
@@ -197,6 +205,13 @@ export default function ClaimPage(): React.ReactElement {
     }
   };
 
+  /**
+   * Retrieve the LNURL-pay callback URL from a Lightning address.
+   * Converts user@domain.com format to the LNURL-pay endpoint.
+   *
+   * @param lnAddress - Lightning address (user@domain.com) or full LNURL endpoint
+   * @returns The callback URL for generating invoices, or undefined if fetching fails
+   */
   const getCallback = async (lnAddress: string): Promise<string | undefined> => {
     const lnurlpEndpoint = lnAddress.includes('/.well-known/lnurlp/')
       ? lnAddress
@@ -219,6 +234,14 @@ export default function ClaimPage(): React.ReactElement {
     }
   };
 
+  /**
+   * Pay a Lightning invoice using the link's NWC URL and mark the link as claimed.
+   * Payment is the critical operation; marking as claimed is best-effort.
+   *
+   * @param invoice - The BOLT11 invoice to pay
+   * @returns True if payment succeeded (regardless of deletion event status)
+   * @throws If payment fails
+   */
   const payInvoiceAndMarkClaimed = async (invoice: string): Promise<boolean> => {
     if (!payload || !linkData) {
       showToast('error', 'Error', 'Link data not available');
@@ -246,6 +269,12 @@ export default function ClaimPage(): React.ReactElement {
     return true;
   };
 
+  /**
+   * Handle form submission to claim the Bitcoin Link.
+   * Processes Lightning addresses, BOLT11 invoices, and LNURL inputs.
+   *
+   * @param e - Form submission event
+   */
   const handleSubmit = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -361,6 +390,10 @@ export default function ClaimPage(): React.ReactElement {
     }
   };
 
+  /**
+   * Handle claim submission using WebLN (Alby extension).
+   * Generates an invoice via WebLN and pays it using the link's NWC URL.
+   */
   const handleAlbySubmit = async (): Promise<void> => {
     try {
       setIsSubmitting(true);
@@ -491,15 +524,18 @@ export default function ClaimPage(): React.ReactElement {
             </form>
             <div className="flex flex-col my-4">
               <p className="text-2xl text-center my-0">OR</p>
-              <div className="flex flex-col w-[225px] justify-between mx-auto h-[30vh] mb-4">
-                <AlbyButton text="Claim with Alby" handleSubmit={handleAlbySubmit} />
+              <div className="flex flex-col w-[225px] justify-between mx-auto h-[24vh] mb-4">
+                <button
+                  onClick={handleAlbySubmit}
+                  disabled={claimed || isSubmitting}
+                  className="flex items-center justify-center gap-2 px-4 py-2 bg-[#FFDF6F] hover:bg-[#FFE88C] text-black font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span>⚡</span>
+                  <span>Claim with Alby</span>
+                </button>
                 <StrikeButton
                   text="Claim with Strike"
                   handleSubmit={() => setIsStrikeVisible(true)}
-                />
-                <MutinyButton
-                  text="Claim with Mutiny"
-                  handleSubmit={() => setIsMutinyVisible(true)}
                 />
                 <CashAppButton
                   text="Claim with CashApp"
@@ -523,16 +559,6 @@ export default function ClaimPage(): React.ReactElement {
         isVisible={isCashAppVisible}
         onHide={() => {
           setIsCashAppVisible(false);
-        }}
-        input={input}
-        setInput={setInput}
-        onSubmit={handleSubmit}
-        amount={linkInfo?.amount}
-      />
-      <MutinyInstructions
-        isVisible={isMutinyVisible}
-        onHide={() => {
-          setIsMutinyVisible(false);
         }}
         input={input}
         setInput={setInput}
