@@ -7,6 +7,7 @@ import { parseNWCURL } from 'snstr';
 import { BitcoinLinkNostrClient } from './client';
 import { createBitcoinLink } from './gift-wrap';
 import { createClaimUrl } from './link-encoder';
+import { normalizeNwcUrl } from './nwc-client';
 import type { BitcoinLinkPayload } from './types';
 
 /**
