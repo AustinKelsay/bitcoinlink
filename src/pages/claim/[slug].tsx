@@ -36,6 +36,12 @@ export default function ClaimPage(): React.ReactElement {
   const { slug } = router.query;
   const { showToast } = useToast();
 
+  /**
+   * Fetch and decrypt the Bitcoin Link data from Nostr relays.
+   * Checks if the link has been claimed and retrieves the encrypted payload.
+   *
+   * @param encoded - The base64url-encoded link data from the URL slug
+   */
   const fetchLinkData = useCallback(async (encoded: string) => {
     try {
       // Decode the link URL
@@ -161,6 +167,12 @@ export default function ClaimPage(): React.ReactElement {
     return null;
   };
 
+  /**
+   * Fetch a Lightning invoice from an LNURL-pay callback endpoint.
+   *
+   * @param params - Object containing callback URL and amount in millisatoshis
+   * @returns The BOLT11 invoice string, or undefined if fetching fails
+   */
   const fetchInvoice = async ({
     callback,
     amount,
@@ -193,6 +205,13 @@ export default function ClaimPage(): React.ReactElement {
     }
   };
 
+  /**
+   * Retrieve the LNURL-pay callback URL from a Lightning address.
+   * Converts user@domain.com format to the LNURL-pay endpoint.
+   *
+   * @param lnAddress - Lightning address (user@domain.com) or full LNURL endpoint
+   * @returns The callback URL for generating invoices, or undefined if fetching fails
+   */
   const getCallback = async (lnAddress: string): Promise<string | undefined> => {
     const lnurlpEndpoint = lnAddress.includes('/.well-known/lnurlp/')
       ? lnAddress
@@ -215,6 +234,14 @@ export default function ClaimPage(): React.ReactElement {
     }
   };
 
+  /**
+   * Pay a Lightning invoice using the link's NWC URL and mark the link as claimed.
+   * Payment is the critical operation; marking as claimed is best-effort.
+   *
+   * @param invoice - The BOLT11 invoice to pay
+   * @returns True if payment succeeded (regardless of deletion event status)
+   * @throws If payment fails
+   */
   const payInvoiceAndMarkClaimed = async (invoice: string): Promise<boolean> => {
     if (!payload || !linkData) {
       showToast('error', 'Error', 'Link data not available');
@@ -242,6 +269,12 @@ export default function ClaimPage(): React.ReactElement {
     return true;
   };
 
+  /**
+   * Handle form submission to claim the Bitcoin Link.
+   * Processes Lightning addresses, BOLT11 invoices, and LNURL inputs.
+   *
+   * @param e - Form submission event
+   */
   const handleSubmit = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -357,6 +390,10 @@ export default function ClaimPage(): React.ReactElement {
     }
   };
 
+  /**
+   * Handle claim submission using WebLN (Alby extension).
+   * Generates an invoice via WebLN and pays it using the link's NWC URL.
+   */
   const handleAlbySubmit = async (): Promise<void> => {
     try {
       setIsSubmitting(true);
