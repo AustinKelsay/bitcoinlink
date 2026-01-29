@@ -116,7 +116,7 @@ export default function Home(): React.ReactElement {
         showToast('success', 'Connected', 'Wallet connected with NWC support!');
       } else {
         // Extension connection - doesn't provide NWC URL directly
-        showToast('error', 'NWC URL Required', 'Could not retrieve NWC URL from wallet. Please try reconnecting or use a different wallet.');
+        showToast('info', 'NWC URL Required', 'Your wallet connected but you\'ll need to provide an NWC URL to generate links.');
       }
     } catch (error) {
       console.error('Error getting connector config');

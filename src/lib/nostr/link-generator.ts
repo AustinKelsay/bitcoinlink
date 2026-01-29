@@ -4,11 +4,8 @@
  */
 
 import { parseNWCURL } from 'snstr';
-import { BitcoinLinkNostrClient } from './client';
-import { createBitcoinLink } from './gift-wrap';
-import { createClaimUrl } from './link-encoder';
-import { normalizeNwcUrl } from './nwc-client';
-import type { BitcoinLinkPayload } from './types';
+import type { BitcoinLinkPayload } from '@/lib/nostr';
+import { BitcoinLinkNostrClient, createBitcoinLink, createClaimUrl, normalizeNwcUrl } from '@/lib/nostr';
 
 /**
  * Options for generating Bitcoin links.
@@ -57,14 +54,20 @@ export async function generateLinksFromNWC(
     throw new Error('relays array cannot be empty when provided');
   }
 
-  // Validate NWC URL using snstr's parseNWCURL - this ensures the URL
+  // Normalize and validate NWC URL using snstr's parseNWCURL - this ensures the URL
   // will also work at claim time when we use the same function
+  let normalizedUrl: string;
   try {
-    parseNWCURL(nwcUrl);
+    normalizedUrl = normalizeNwcUrl(nwcUrl);
+  } catch (error) {
+    throw new Error('Invalid NWC URL format');
+  }
+
+  try {
+    parseNWCURL(normalizedUrl);
   } catch (error) {
     throw new Error(
-      `Invalid NWC URL: ${error instanceof Error ? error.message : 'Unknown error'}. ` +
-      'The URL must be a valid nostr+walletconnect:// URL with relay and secret parameters.'
+      'Invalid NWC URL. The URL must be a valid nostr+walletconnect:// URL with relay and secret parameters.'
     );
   }
 
@@ -77,7 +80,7 @@ export async function generateLinksFromNWC(
     for (let i = 0; i < numberOfLinks; i++) {
       const payload: BitcoinLinkPayload = {
         type: 'bitcoinlink',
-        nwcUrl,
+        nwcUrl: normalizedUrl,
         amount: satsPerLink,
       };
 

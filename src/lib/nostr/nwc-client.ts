@@ -148,13 +148,7 @@ function preValidateNwcUrl(nwcUrl: unknown): asserts nwcUrl is string {
   }
 
   if (!secret) {
-    // Provide detailed debugging info
-    const allParams = Array.from(params.entries());
-    throw new Error(
-      `NWC URL missing secret parameter. ` +
-      `Query string: "${queryString.substring(0, 100)}...", ` +
-      `Parsed params: [${allParams.map(([k]) => k).join(', ')}]`
-    );
+    throw new Error('NWC URL missing secret parameter');
   }
   // Note: snstr's parseNWCURL doesn't require a minimum secret length,
   // so we only check that it exists (for parity with snstr)
