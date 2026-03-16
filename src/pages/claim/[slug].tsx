@@ -1,4 +1,4 @@
-import React, { useState, useEffect, FormEvent, useCallback } from 'react';
+import React, { useState, useEffect, FormEvent, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { bech32 } from 'bech32';
 import StrikeInstructions from '@/components/strike/StrikeInstructions';
@@ -29,6 +29,7 @@ export default function ClaimPage(): React.ReactElement {
   const [loading, setLoading] = useState(true);
   const [input, setInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const claimInFlightRef = useRef(false);
   const [isStrikeVisible, setIsStrikeVisible] = useState(false);
   const [isCashAppVisible, setIsCashAppVisible] = useState(false);
   const router = useRouter();
@@ -66,8 +67,15 @@ export default function ClaimPage(): React.ReactElement {
           return;
         }
 
-        // Fetch the gift wrap event
-        const event = await client.fetchEvent(decoded.eventId);
+        // Fetch the gift wrap event with bounded retries for relay flakiness
+        let event = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          event = await client.fetchEvent(decoded.eventId);
+          if (event) break;
+          if (attempt < 2) {
+            await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+          }
+        }
 
         if (!event) {
           setExists(false);
@@ -127,9 +135,11 @@ export default function ClaimPage(): React.ReactElement {
    */
   const parseLightningAddress = (inputValue: string): ParsedInput | null => {
     if (typeof inputValue !== 'string') return null;
+    const normalizedInput = inputValue.trim();
+    if (!normalizedInput) return null;
 
-    if (inputValue.toLowerCase().startsWith('lnurl')) {
-      const decoded = decodeLnurl(inputValue);
+    if (normalizedInput.toLowerCase().startsWith('lnurl')) {
+      const decoded = decodeLnurl(normalizedInput);
 
       if (!decoded) {
         showToast('warn', 'Invalid LNURL', 'This is not a valid LNURL.');
@@ -139,14 +149,14 @@ export default function ClaimPage(): React.ReactElement {
     }
 
     // Check for BOLT11 invoice: lnbc (mainnet), lntb (testnet), lnbcrt (regtest)
-    if (/^ln(bc|tb|bcrt)/i.test(inputValue)) {
+    if (/^ln(bc|tb|bcrt)/i.test(normalizedInput)) {
       try {
-        const result = validateBolt11(inputValue);
+        const result = validateBolt11(normalizedInput);
         if (!result.valid) {
           showToast('warn', 'Invalid Invoice', result.reason || 'This is not a valid invoice.');
           return null;
         }
-        return { type: 'invoice', data: inputValue };
+        return { type: 'invoice', data: normalizedInput };
       } catch {
         showToast('warn', 'Invalid Invoice', 'This is not a valid invoice.');
         return null;
@@ -154,9 +164,9 @@ export default function ClaimPage(): React.ReactElement {
     }
 
     // Try to parse as Lightning address (user@domain.com)
-    const [username, domain] = inputValue.split('@');
+    const [username, domain] = normalizedInput.split('@');
     if (username && domain && domain.includes('.')) {
-      return { type: 'address', data: inputValue };
+      return { type: 'address', data: normalizedInput };
     }
 
     showToast(
@@ -277,6 +287,10 @@ export default function ClaimPage(): React.ReactElement {
    */
   const handleSubmit = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
+    if (claimInFlightRef.current) {
+      return;
+    }
+    claimInFlightRef.current = true;
     setIsSubmitting(true);
 
     if (!linkData || !payload) {
@@ -387,6 +401,8 @@ export default function ClaimPage(): React.ReactElement {
         'Error',
         'An unexpected error occurred. Please try again.'
       );
+    } finally {
+      claimInFlightRef.current = false;
     }
   };
 
@@ -395,7 +411,12 @@ export default function ClaimPage(): React.ReactElement {
    * Generates an invoice via WebLN and pays it using the link's NWC URL.
    */
   const handleAlbySubmit = async (): Promise<void> => {
+    if (claimInFlightRef.current) {
+      return;
+    }
+
     try {
+      claimInFlightRef.current = true;
       setIsSubmitting(true);
 
       if (!linkData || !payload) {
@@ -455,12 +476,14 @@ export default function ClaimPage(): React.ReactElement {
         'Error Sending Payment',
         'An error occurred while sending the payment. Please try again.'
       );
+    } finally {
+      claimInFlightRef.current = false;
     }
   };
 
   if (loading) {
     return (
-      <main className="flex flex-col items-center justify-evenly p-8 sm:w-[80vw] md:w-[70vw] lg:w-[60vw] xl:w-[50vw] mx-auto">
+      <main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col items-center justify-center gap-4 p-6 md:p-10">
         <h1 className="text-4xl mb-4">Loading...</h1>
         <ProgressSpinner
           style={{ width: '50px', height: '50px' }}
@@ -472,35 +495,35 @@ export default function ClaimPage(): React.ReactElement {
   }
 
   return (
-    <main className="flex flex-col items-center justify-evenly p-8 sm:w-[80vw] md:w-[70vw] lg:w-[60vw] xl:w-[50vw] mx-auto">
+    <main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col items-center justify-center gap-4 p-6 md:p-10">
       {!exists ? (
         <>
-          <h1 className="text-6xl mb-0">Link not found</h1>
-          <p className="text-2xl mt-0">
+          <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">Link not found</h1>
+          <p className="mt-1 text-lg text-gray-300">
             This means the link has either already been claimed or has expired
           </p>
         </>
       ) : (
         <>
-          <h1 className="text-6xl mb-0">
+          <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">
             {claimed ? 'Link Claimed' : 'Claim Link'}
           </h1>
-          <div className="flex flex-col items-center">
-            <p className="text-2xl mt-0">
+          <div className="mt-4 w-full rounded-xl border border-gray-700 bg-gray-900/40 p-6 md:p-8">
+            <p className="mt-1 text-lg text-gray-300">
               <span className={`${claimed ? 'text-green-500' : 'text-yellow-500'}`}>
                 {claimed ? 'Claimed' : 'Unclaimed'}
               </span>
             </p>
             {claimed || !linkInfo ? null : (
-              <p className="text-3xl mt-0">{linkInfo?.amount} sats</p>
+              <p className="mt-1 text-3xl font-semibold">{linkInfo?.amount} sats</p>
             )}
             <form onSubmit={handleSubmit} className="flex flex-col items-center">
-              <div className="flex flex-col items-center my-8">
-                <label className="mb-2 text-3xl" htmlFor="lightning-address">
+              <div className="mb-6 flex flex-col">
+                <label className="mb-2 text-base font-medium" htmlFor="lightning-address">
                   Enter any Lightning Address, Bolt11 Invoice, or LNURL
                 </label>
                 <InputText
-                  className="w-full"
+                  className="w-full rounded-md"
                   id="lightning-address"
                   placeholder="user@website.com... or lnbc1q or LNURL1..."
                   value={input}
@@ -516,7 +539,7 @@ export default function ClaimPage(): React.ReactElement {
               ) : (
                 <Button
                   disabled={claimed}
-                  label="Claim"
+                  label="Claim Link"
                   severity="success"
                   type="submit"
                 />

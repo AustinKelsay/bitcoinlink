@@ -100,7 +100,7 @@ export function normalizeNwcUrl(nwcUrl: string): string {
  * @param nwcUrl - The URL to validate
  * @throws Detailed error if validation fails
  */
-function preValidateNwcUrl(nwcUrl: unknown): asserts nwcUrl is string {
+export function preValidateNwcUrl(nwcUrl: unknown): asserts nwcUrl is string {
   if (nwcUrl === undefined || nwcUrl === null) {
     throw new Error('NWC URL is undefined or null - this may indicate a decryption or data corruption issue');
   }
@@ -163,14 +163,51 @@ function preValidateNwcUrl(nwcUrl: unknown): asserts nwcUrl is string {
  * @returns The payment result containing the preimage
  * @throws If payment fails or times out
  */
+export function normalizeInvoiceInput(invoice: unknown): string {
+  if (typeof invoice !== 'string') {
+    throw new Error('Invalid invoice: invoice must be a non-empty string');
+  }
+
+  const trimmed = invoice.trim();
+  if (!trimmed) {
+    throw new Error('Invalid invoice: invoice must be a non-empty string');
+  }
+
+  if (!/^ln(bc|tb|bcrt)/i.test(trimmed)) {
+    throw new Error('Invalid invoice: expected a BOLT11 lightning invoice');
+  }
+
+  return trimmed;
+}
+
+function isRetryableError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  return message.includes('timeout') || message.includes('network') || message.includes('econn') || message.includes('temporar');
+}
+
+async function withRetry<T>(fn: () => Promise<T>, attempts = 2): Promise<T> {
+  let lastError: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      if (i === attempts - 1 || !isRetryableError(error)) {
+        throw error;
+      }
+      const backoffMs = 250 * (i + 1);
+      await new Promise((resolve) => setTimeout(resolve, backoffMs));
+    }
+  }
+
+  throw lastError;
+}
+
 export async function payInvoiceWithNWC(
   nwcUrl: string,
   invoice: string
 ): Promise<PaymentResult> {
-  // Fail fast on empty or invalid invoice
-  if (!invoice || typeof invoice !== 'string' || invoice.trim().length === 0) {
-    throw new Error('Invalid invoice: invoice must be a non-empty string');
-  }
+  const normalizedInvoice = normalizeInvoiceInput(invoice);
 
   // Normalize the NWC URL to handle unencoded relay URLs
   // This fixes the "Missing secret in NWC URL" error caused by snstr's
@@ -191,8 +228,8 @@ export async function payInvoiceWithNWC(
     const connectionOptions = parseNWCURL(normalizedUrl);
     client = new NostrWalletConnectClient(connectionOptions);
 
-    await client.init();
-    const result = await client.payInvoice(invoice);
+    await withRetry(() => client!.init(), 2);
+    const result = await withRetry(() => client!.payInvoice(normalizedInvoice), 2);
 
     if (!result || !result.preimage) {
       throw new Error('Payment failed: no preimage returned');

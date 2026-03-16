@@ -204,9 +204,9 @@ export default function Home(): React.ReactElement {
   const hasValidInputs = numberOfLinks && numberOfLinks >= 1 && Number.isInteger(numberOfLinks) && satsPerLink && satsPerLink >= 1 && Number.isInteger(satsPerLink);
 
   return (
-    <main className={'flex flex-col items-center justify-evenly p-8'}>
-      <h1 className="text-6xl mb-0">BitcoinLink</h1>
-      <p>Create single use non-custodial bitcoin links redeemable via Lightning</p>
+    <main className={'mx-auto flex min-h-screen w-full max-w-3xl flex-col items-center justify-center gap-4 p-6 md:p-10'}>
+      <h1 className="text-5xl font-semibold tracking-tight md:text-6xl">BitcoinLink</h1>
+      <p className="text-center text-sm text-gray-300 md:text-base">Create single-use non-custodial bitcoin links redeemable over Lightning.</p>
       
       {generatingLinks ? (
         <>
@@ -218,9 +218,9 @@ export default function Home(): React.ReactElement {
           />
         </>
       ) : (
-        <div className="flex flex-col items-center">
-          <div className="flex flex-col items-center my-8">
-            <label className="mb-2 text-2xl" htmlFor="number">
+        <div className="mt-4 w-full rounded-xl border border-gray-700 bg-gray-900/40 p-6 md:p-8">
+          <div className="mb-6 flex flex-col">
+            <label className="mb-2 text-lg font-medium" htmlFor="number">
               Number of links
             </label>
             <InputNumber
@@ -235,8 +235,8 @@ export default function Home(): React.ReactElement {
             />
           </div>
           
-          <div className="flex flex-col items-center my-8">
-            <label className="mb-2 text-2xl" htmlFor="sats">
+          <div className="mb-6 flex flex-col">
+            <label className="mb-2 text-lg font-medium" htmlFor="sats">
               Sats per link
             </label>
             <InputNumber
@@ -258,7 +258,7 @@ export default function Home(): React.ReactElement {
             </div>
           )}
           
-          <div className="flex flex-col justify-center items-center gap-4 my-4">
+          <div className="mt-4 flex flex-col items-center gap-3">
             {/* Bitcoin Connect for wallet status/balance display */}
             <BCButton 
               onConnected={handleConnected}
@@ -273,7 +273,7 @@ export default function Home(): React.ReactElement {
               size="large"
               disabled={!hasValidInputs || isLoading}
               onClick={handleGenerateClick}
-              className="mt-4"
+              className="mt-2 w-full sm:w-auto"
             />
           </div>
         </div>
