@@ -10,3 +10,4 @@ export * from './link-encoder';
 export * from './client';
 export * from './nwc-client';
 export * from './link-generator';
+export * from './claim-utils';

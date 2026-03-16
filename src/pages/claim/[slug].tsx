@@ -16,6 +16,8 @@ import {
   decryptBitcoinLink,
   BitcoinLinkNostrClient,
   payInvoiceWithNWC,
+  ensureLnurlPayResponse,
+  extractInvoiceFromCallbackPayload,
 } from '@/lib/nostr';
 import type { EncodedLink, LinkInfo, ParsedInput, BitcoinLinkPayload } from '@/lib/nostr';
 import { getPublicKey } from 'snstr';
@@ -317,31 +319,17 @@ export default function ClaimPage(): React.ReactElement {
       if (validInput.type === 'lnurl') {
         const response = await fetch(validInput.data);
         const lnurlPayData = await response.json();
+        const amount = (linkInfo?.amount ?? 0) * 1000;
 
-        if (lnurlPayData.tag === 'payRequest') {
-          const amount = (linkInfo?.amount ?? 0) * 1000;
-          if (amount >= lnurlPayData.minSendable && amount <= lnurlPayData.maxSendable) {
-            const invoiceResponse = await fetch(
-              `${lnurlPayData.callback}?amount=${amount}`
-            );
-            const invoiceData = await invoiceResponse.json();
-            invoice = invoiceData.pr;
-          } else {
-            setIsSubmitting(false);
-            showToast(
-              'error',
-              'Amount Out of Range',
-              'The requested amount is not within the acceptable range for this LNURL-pay.'
-            );
-            return;
-          }
-        } else {
+        try {
+          const callback = ensureLnurlPayResponse(lnurlPayData, amount);
+          const invoiceResponse = await fetch(`${callback}?amount=${amount}`);
+          const invoiceData = await invoiceResponse.json();
+          invoice = extractInvoiceFromCallbackPayload(invoiceData);
+        } catch (lnurlError) {
+          const message = lnurlError instanceof Error ? lnurlError.message : 'Invalid LNURL-pay flow';
           setIsSubmitting(false);
-          showToast(
-            'error',
-            'Invalid LNURL-pay Data',
-            'The LNURL-pay data returned from the server is invalid.'
-          );
+          showToast('error', 'Invalid LNURL-pay Data', message);
           return;
         }
       } else if (validInput.type === 'invoice') {
