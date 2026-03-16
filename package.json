@@ -10,6 +10,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@getalby/bitcoin-connect-react": "^3.11.5",
     "@getalby/sdk": "^3.5.0",
     "bech32": "^2.0.0",
     "light-bolt11-decoder": "^3.1.1",
@@ -20,7 +21,7 @@
     "qrcode.react": "^3.1.0",
     "react": "^18",
     "react-dom": "^18",
-    "snstr": "^0.2.0"
+    "snstr": "file:../snstr"
   },
   "devDependencies": {
     "@types/jest": "^29.5.11",

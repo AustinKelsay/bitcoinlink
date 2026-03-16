@@ -3,7 +3,7 @@
  * Uses mocks to test payInvoiceWithNWC without real wallet connections
  */
 
-import { payInvoiceWithNWC, isValidNWCUrl, getRelaysFromNWCUrl } from '../../src/lib/nostr/nwc-client';
+import { payInvoiceWithNWC, isValidNWCUrl, getRelaysFromNWCUrl, normalizeInvoiceInput, preValidateNwcUrl } from '../../src/lib/nostr/nwc-client';
 
 // Mock snstr module
 jest.mock('snstr', () => ({
@@ -131,6 +131,22 @@ describe('NWC Payment', () => {
         .rejects.toThrow('Timeout');
     });
 
+    it('should retry transient payment errors and eventually succeed', async () => {
+      const mockClient = {
+        init: jest.fn().mockResolvedValue(undefined),
+        payInvoice: jest
+          .fn()
+          .mockRejectedValueOnce(new Error('Network timeout'))
+          .mockResolvedValueOnce({ preimage: 'retry-preimage' }),
+        disconnect: jest.fn().mockResolvedValue(undefined),
+      };
+      NostrWalletConnectClient.mockImplementation(() => mockClient);
+
+      const result = await payInvoiceWithNWC(VALID_NWC_URL, VALID_INVOICE);
+      expect(result).toEqual({ preimage: 'retry-preimage' });
+      expect(mockClient.payInvoice).toHaveBeenCalledTimes(2);
+    });
+
     it('should handle network errors during disconnect gracefully', async () => {
       const mockPreimage = 'preimage123';
       const mockClient = {
@@ -145,6 +161,21 @@ describe('NWC Payment', () => {
       expect(result).toEqual({ preimage: mockPreimage });
       // Disconnect was still attempted
       expect(mockClient.disconnect).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('input normalization and validation', () => {
+    it('should trim invoice input', () => {
+      expect(normalizeInvoiceInput('  lnbc10u1ptest  ')).toBe('lnbc10u1ptest');
+    });
+
+    it('should reject non-bolt11 invoice input', () => {
+      expect(() => normalizeInvoiceInput('not-an-invoice')).toThrow('Invalid invoice: expected a BOLT11 lightning invoice');
+    });
+
+    it('should expose detailed NWC validation errors', () => {
+      const validPubkey = 'a'.repeat(64);
+      expect(() => preValidateNwcUrl(`nostr+walletconnect://${validPubkey}?relay=wss://relay.test.com`)).toThrow('missing secret');
     });
   });
 

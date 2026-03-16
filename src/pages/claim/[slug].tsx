@@ -1,14 +1,11 @@
-import React, { useState, useEffect, FormEvent, useCallback } from 'react';
+import React, { useState, useEffect, FormEvent, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { bech32 } from 'bech32';
 import StrikeInstructions from '@/components/strike/StrikeInstructions';
 import CashAppInstructions from '@/components/cashapp/CashAppInstructions';
-import MutinyInstructions from '@/components/mutiny/MutinyInstructions';
 import { validateBolt11 } from '@/utils/bolt11';
 import CashAppButton from '@/components/cashapp/CashAppButton';
-import MutinyButton from '@/components/mutiny/MutinyButton';
 import StrikeButton from '@/components/strike/StrikeButton';
-import AlbyButton from '@/components/AlbyButton';
 import { InputText } from 'primereact/inputtext';
 import { Button } from 'primereact/button';
 import { ProgressSpinner } from 'primereact/progressspinner';
@@ -19,6 +16,8 @@ import {
   decryptBitcoinLink,
   BitcoinLinkNostrClient,
   payInvoiceWithNWC,
+  ensureLnurlPayResponse,
+  extractInvoiceFromCallbackPayload,
 } from '@/lib/nostr';
 import type { EncodedLink, LinkInfo, ParsedInput, BitcoinLinkPayload } from '@/lib/nostr';
 import { getPublicKey } from 'snstr';
@@ -32,14 +31,20 @@ export default function ClaimPage(): React.ReactElement {
   const [loading, setLoading] = useState(true);
   const [input, setInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const claimInFlightRef = useRef(false);
   const [isStrikeVisible, setIsStrikeVisible] = useState(false);
   const [isCashAppVisible, setIsCashAppVisible] = useState(false);
-  const [isMutinyVisible, setIsMutinyVisible] = useState(false);
   const router = useRouter();
 
   const { slug } = router.query;
   const { showToast } = useToast();
 
+  /**
+   * Fetch and decrypt the Bitcoin Link data from Nostr relays.
+   * Checks if the link has been claimed and retrieves the encrypted payload.
+   *
+   * @param encoded - The base64url-encoded link data from the URL slug
+   */
   const fetchLinkData = useCallback(async (encoded: string) => {
     try {
       // Decode the link URL
@@ -64,8 +69,15 @@ export default function ClaimPage(): React.ReactElement {
           return;
         }
 
-        // Fetch the gift wrap event
-        const event = await client.fetchEvent(decoded.eventId);
+        // Fetch the gift wrap event with bounded retries for relay flakiness
+        let event = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          event = await client.fetchEvent(decoded.eventId);
+          if (event) break;
+          if (attempt < 2) {
+            await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+          }
+        }
 
         if (!event) {
           setExists(false);
@@ -125,9 +137,11 @@ export default function ClaimPage(): React.ReactElement {
    */
   const parseLightningAddress = (inputValue: string): ParsedInput | null => {
     if (typeof inputValue !== 'string') return null;
+    const normalizedInput = inputValue.trim();
+    if (!normalizedInput) return null;
 
-    if (inputValue.toLowerCase().startsWith('lnurl')) {
-      const decoded = decodeLnurl(inputValue);
+    if (normalizedInput.toLowerCase().startsWith('lnurl')) {
+      const decoded = decodeLnurl(normalizedInput);
 
       if (!decoded) {
         showToast('warn', 'Invalid LNURL', 'This is not a valid LNURL.');
@@ -137,14 +151,14 @@ export default function ClaimPage(): React.ReactElement {
     }
 
     // Check for BOLT11 invoice: lnbc (mainnet), lntb (testnet), lnbcrt (regtest)
-    if (/^ln(bc|tb|bcrt)/i.test(inputValue)) {
+    if (/^ln(bc|tb|bcrt)/i.test(normalizedInput)) {
       try {
-        const result = validateBolt11(inputValue);
+        const result = validateBolt11(normalizedInput);
         if (!result.valid) {
           showToast('warn', 'Invalid Invoice', result.reason || 'This is not a valid invoice.');
           return null;
         }
-        return { type: 'invoice', data: inputValue };
+        return { type: 'invoice', data: normalizedInput };
       } catch {
         showToast('warn', 'Invalid Invoice', 'This is not a valid invoice.');
         return null;
@@ -152,9 +166,9 @@ export default function ClaimPage(): React.ReactElement {
     }
 
     // Try to parse as Lightning address (user@domain.com)
-    const [username, domain] = inputValue.split('@');
+    const [username, domain] = normalizedInput.split('@');
     if (username && domain && domain.includes('.')) {
-      return { type: 'address', data: inputValue };
+      return { type: 'address', data: normalizedInput };
     }
 
     showToast(
@@ -165,6 +179,12 @@ export default function ClaimPage(): React.ReactElement {
     return null;
   };
 
+  /**
+   * Fetch a Lightning invoice from an LNURL-pay callback endpoint.
+   *
+   * @param params - Object containing callback URL and amount in millisatoshis
+   * @returns The BOLT11 invoice string, or undefined if fetching fails
+   */
   const fetchInvoice = async ({
     callback,
     amount,
@@ -197,6 +217,13 @@ export default function ClaimPage(): React.ReactElement {
     }
   };
 
+  /**
+   * Retrieve the LNURL-pay callback URL from a Lightning address.
+   * Converts user@domain.com format to the LNURL-pay endpoint.
+   *
+   * @param lnAddress - Lightning address (user@domain.com) or full LNURL endpoint
+   * @returns The callback URL for generating invoices, or undefined if fetching fails
+   */
   const getCallback = async (lnAddress: string): Promise<string | undefined> => {
     const lnurlpEndpoint = lnAddress.includes('/.well-known/lnurlp/')
       ? lnAddress
@@ -219,6 +246,14 @@ export default function ClaimPage(): React.ReactElement {
     }
   };
 
+  /**
+   * Pay a Lightning invoice using the link's NWC URL and mark the link as claimed.
+   * Payment is the critical operation; marking as claimed is best-effort.
+   *
+   * @param invoice - The BOLT11 invoice to pay
+   * @returns True if payment succeeded (regardless of deletion event status)
+   * @throws If payment fails
+   */
   const payInvoiceAndMarkClaimed = async (invoice: string): Promise<boolean> => {
     if (!payload || !linkData) {
       showToast('error', 'Error', 'Link data not available');
@@ -246,8 +281,18 @@ export default function ClaimPage(): React.ReactElement {
     return true;
   };
 
+  /**
+   * Handle form submission to claim the Bitcoin Link.
+   * Processes Lightning addresses, BOLT11 invoices, and LNURL inputs.
+   *
+   * @param e - Form submission event
+   */
   const handleSubmit = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
+    if (claimInFlightRef.current) {
+      return;
+    }
+    claimInFlightRef.current = true;
     setIsSubmitting(true);
 
     if (!linkData || !payload) {
@@ -274,31 +319,17 @@ export default function ClaimPage(): React.ReactElement {
       if (validInput.type === 'lnurl') {
         const response = await fetch(validInput.data);
         const lnurlPayData = await response.json();
+        const amount = (linkInfo?.amount ?? 0) * 1000;
 
-        if (lnurlPayData.tag === 'payRequest') {
-          const amount = (linkInfo?.amount ?? 0) * 1000;
-          if (amount >= lnurlPayData.minSendable && amount <= lnurlPayData.maxSendable) {
-            const invoiceResponse = await fetch(
-              `${lnurlPayData.callback}?amount=${amount}`
-            );
-            const invoiceData = await invoiceResponse.json();
-            invoice = invoiceData.pr;
-          } else {
-            setIsSubmitting(false);
-            showToast(
-              'error',
-              'Amount Out of Range',
-              'The requested amount is not within the acceptable range for this LNURL-pay.'
-            );
-            return;
-          }
-        } else {
+        try {
+          const callback = ensureLnurlPayResponse(lnurlPayData, amount);
+          const invoiceResponse = await fetch(`${callback}?amount=${amount}`);
+          const invoiceData = await invoiceResponse.json();
+          invoice = extractInvoiceFromCallbackPayload(invoiceData);
+        } catch (lnurlError) {
+          const message = lnurlError instanceof Error ? lnurlError.message : 'Invalid LNURL-pay flow';
           setIsSubmitting(false);
-          showToast(
-            'error',
-            'Invalid LNURL-pay Data',
-            'The LNURL-pay data returned from the server is invalid.'
-          );
+          showToast('error', 'Invalid LNURL-pay Data', message);
           return;
         }
       } else if (validInput.type === 'invoice') {
@@ -358,11 +389,22 @@ export default function ClaimPage(): React.ReactElement {
         'Error',
         'An unexpected error occurred. Please try again.'
       );
+    } finally {
+      claimInFlightRef.current = false;
     }
   };
 
+  /**
+   * Handle claim submission using WebLN (Alby extension).
+   * Generates an invoice via WebLN and pays it using the link's NWC URL.
+   */
   const handleAlbySubmit = async (): Promise<void> => {
+    if (claimInFlightRef.current) {
+      return;
+    }
+
     try {
+      claimInFlightRef.current = true;
       setIsSubmitting(true);
 
       if (!linkData || !payload) {
@@ -422,12 +464,14 @@ export default function ClaimPage(): React.ReactElement {
         'Error Sending Payment',
         'An error occurred while sending the payment. Please try again.'
       );
+    } finally {
+      claimInFlightRef.current = false;
     }
   };
 
   if (loading) {
     return (
-      <main className="flex flex-col items-center justify-evenly p-8 sm:w-[80vw] md:w-[70vw] lg:w-[60vw] xl:w-[50vw] mx-auto">
+      <main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col items-center justify-center gap-4 p-6 md:p-10">
         <h1 className="text-4xl mb-4">Loading...</h1>
         <ProgressSpinner
           style={{ width: '50px', height: '50px' }}
@@ -439,35 +483,35 @@ export default function ClaimPage(): React.ReactElement {
   }
 
   return (
-    <main className="flex flex-col items-center justify-evenly p-8 sm:w-[80vw] md:w-[70vw] lg:w-[60vw] xl:w-[50vw] mx-auto">
+    <main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col items-center justify-center gap-4 p-6 md:p-10">
       {!exists ? (
         <>
-          <h1 className="text-6xl mb-0">Link not found</h1>
-          <p className="text-2xl mt-0">
+          <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">Link not found</h1>
+          <p className="mt-1 text-lg text-gray-300">
             This means the link has either already been claimed or has expired
           </p>
         </>
       ) : (
         <>
-          <h1 className="text-6xl mb-0">
+          <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">
             {claimed ? 'Link Claimed' : 'Claim Link'}
           </h1>
-          <div className="flex flex-col items-center">
-            <p className="text-2xl mt-0">
+          <div className="mt-4 w-full rounded-xl border border-gray-700 bg-gray-900/40 p-6 md:p-8">
+            <p className="mt-1 text-lg text-gray-300">
               <span className={`${claimed ? 'text-green-500' : 'text-yellow-500'}`}>
                 {claimed ? 'Claimed' : 'Unclaimed'}
               </span>
             </p>
             {claimed || !linkInfo ? null : (
-              <p className="text-3xl mt-0">{linkInfo?.amount} sats</p>
+              <p className="mt-1 text-3xl font-semibold">{linkInfo?.amount} sats</p>
             )}
             <form onSubmit={handleSubmit} className="flex flex-col items-center">
-              <div className="flex flex-col items-center my-8">
-                <label className="mb-2 text-3xl" htmlFor="lightning-address">
+              <div className="mb-6 flex flex-col">
+                <label className="mb-2 text-base font-medium" htmlFor="lightning-address">
                   Enter any Lightning Address, Bolt11 Invoice, or LNURL
                 </label>
                 <InputText
-                  className="w-full"
+                  className="w-full rounded-md"
                   id="lightning-address"
                   placeholder="user@website.com... or lnbc1q or LNURL1..."
                   value={input}
@@ -483,7 +527,7 @@ export default function ClaimPage(): React.ReactElement {
               ) : (
                 <Button
                   disabled={claimed}
-                  label="Claim"
+                  label="Claim Link"
                   severity="success"
                   type="submit"
                 />
@@ -491,15 +535,18 @@ export default function ClaimPage(): React.ReactElement {
             </form>
             <div className="flex flex-col my-4">
               <p className="text-2xl text-center my-0">OR</p>
-              <div className="flex flex-col w-[225px] justify-between mx-auto h-[30vh] mb-4">
-                <AlbyButton text="Claim with Alby" handleSubmit={handleAlbySubmit} />
+              <div className="flex flex-col w-[225px] justify-between mx-auto h-[24vh] mb-4">
+                <button
+                  onClick={handleAlbySubmit}
+                  disabled={claimed || isSubmitting}
+                  className="flex items-center justify-center gap-2 px-4 py-2 bg-[#FFDF6F] hover:bg-[#FFE88C] text-black font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span>⚡</span>
+                  <span>Claim with Alby</span>
+                </button>
                 <StrikeButton
                   text="Claim with Strike"
                   handleSubmit={() => setIsStrikeVisible(true)}
-                />
-                <MutinyButton
-                  text="Claim with Mutiny"
-                  handleSubmit={() => setIsMutinyVisible(true)}
                 />
                 <CashAppButton
                   text="Claim with CashApp"
@@ -523,16 +570,6 @@ export default function ClaimPage(): React.ReactElement {
         isVisible={isCashAppVisible}
         onHide={() => {
           setIsCashAppVisible(false);
-        }}
-        input={input}
-        setInput={setInput}
-        onSubmit={handleSubmit}
-        amount={linkInfo?.amount}
-      />
-      <MutinyInstructions
-        isVisible={isMutinyVisible}
-        onHide={() => {
-          setIsMutinyVisible(false);
         }}
         input={input}
         setInput={setInput}
